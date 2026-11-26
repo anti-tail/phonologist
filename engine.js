@@ -131,6 +131,13 @@
   const LINK_RE = /^([^\d,@]*?)(\d+(?:,\d+)*)([-~.x])([^\d,@]*?)(\d+(?:,\d+)*)$/;
   const NODE_RE = /^([^\d,@]*?)(\d+(?:,\d+)*)([-~.x])@([^\s,]+(?:,[^\s,]+)*)$/;
 
+  // relations between forms: written alone on a line between two frames
+  const OP_RE = /^(<->|<=>|->|=>|<-|>>|↔|⇔|→|⇒|←|≫|>|<|≠|=|≡|≈|~|∼|〜)(?=\s|$)\s*(.*)$/;
+  const OP_NORM = { '<->': '↔', '<=>': '⇔', '->': '→', '=>': '⇒', '<-': '←', '>>': '≫', '~': '∼', '〜': '∼' };
+  const ARROWS = { '→': { dir: 1 }, '⇒': { dir: 1, double: true }, '←': { dir: -1 }, '↔': { dir: 2 }, '⇔': { dir: 2, double: true } };
+
+  const isEmptyFrame = (f) => !f.rows.length && !f.label && !f.gloss && !f.linkLines.length;
+
   function newFrame(arrow) {
     return { tiers: [], rows: [], links: [], nodeLinks: [], linkLines: [], label: '', gloss: '', arrow: arrow || null, opts: new Set() };
   }
@@ -143,10 +150,17 @@
     lines.forEach((raw, i) => {
       const line = raw.trim();
       if (!line || line.startsWith('#')) return;
-      const a = line.match(/^(->|→|=>|⇒)\s*(.*)$/);
+      if (/^(-{3,}|\/\/)$/.test(line)) {
+        if (!isEmptyFrame(cur)) frames.push(cur);
+        cur = newFrame();
+        cur.newRow = true;
+        return;
+      }
+      const a = line.match(OP_RE);
       if (a) {
-        frames.push(cur);
-        cur = newFrame({ double: a[1] === '=>' || a[1] === '⇒', text: a[2] });
+        const op = { sym: OP_NORM[a[1]] || a[1], text: a[2] };
+        if (isEmptyFrame(cur)) cur.arrow = op;
+        else { frames.push(cur); cur = newFrame(op); }
         return;
       }
       const m = line.match(/^([^:：]+?)\s*[:：]\s?(.*)$/);
@@ -158,6 +172,7 @@
       if (k === 'label' || key === '番号') cur.label = body.trim();
       else if (k === 'gloss' || key === '語釈') cur.gloss = body.trim();
       else if (k === 'link' || key === '連結') cur.linkLines.push({ line: i, body });
+      else if (k === 'form' || k === 'text' || key === '語形') cur.rows.push({ kind: 'text', text: unesc(body.trim()) });
       else if (k === 'option' || k === 'options' || key === '設定') body.split(/[\s,]+/).filter(Boolean).forEach((w) => cur.opts.add(w.toLowerCase()));
       else if (/^grid(\s|$)/i.test(key) || /^格子(\s|$)/.test(key)) {
         const label = key.replace(/^(grid|格子)\s*/i, '');
@@ -198,7 +213,7 @@
     };
     f.nodes = new Map();
     R.forEach((r, j) => {
-      if (r.kind === 'tier') return;
+      if (r.kind === 'tier' || r.kind === 'text') return;
       let c;
       if (r.kind === 'tree' && r.below) { c = tierIdx(j - 1, -1); if (c < 0) c = tierIdx(j + 1, 1); }
       else { c = tierIdx(j + 1, 1); if (c < 0) { c = tierIdx(j - 1, -1); if (r.kind === 'tree') r.below = true; } }
@@ -445,7 +460,7 @@
     T.forEach((t, i) => { if (t.elems.length >= T[base].elems.length) base = i; });
 
     const between = (t, i) => t.extra[i] || 0; // brackets before element i
-    {
+    if (T.length) {
       const t = T[base];
       let x = between(t, 0);
       t.elems.forEach((e, i) => {
@@ -556,6 +571,7 @@
     const nl = measure(o, 'swσωμFtAP', nodeLabelSize, false);
 
     const spacing = (a, b) => {
+      if (a.kind === 'text' || b.kind === 'text') return S * 0.45;
       if (a.kind === 'tier' && b.kind === 'tier') return o.tier * S;
       if (a.kind === 'grid' || b.kind === 'grid') return gridLines ? S * 0.5 : S * 0.25;
       const tree = a.kind === 'tree' ? a : b, tier = a.kind === 'tier' ? a : b;
@@ -581,6 +597,13 @@
         t.bottom = t.base + t.desc + extraDown;
         r.top = t.top; r.bottom = t.bottom;
         y = t.bottom;
+      } else if (r.kind === 'text') {
+        const m = measure(o, r.text || ' ', S, false);
+        r.m = m;
+        r.top = y;
+        r.base = y + m.asc;
+        y = r.base + m.desc;
+        r.bottom = y;
       } else if (r.kind === 'grid') {
         r.top = y;
         r.rows.forEach((row, k) => {
@@ -602,6 +625,13 @@
       }
     });
     const coreBottom = y;
+
+    // ---- plain text rows, centred over the tiers
+    {
+      const xs = T.flatMap((t) => t.elems.map((e) => e.x));
+      const cx = xs.length ? (Math.min(...xs) + Math.max(...xs)) / 2 : 0;
+      for (const r of f.rows) if (r.kind === 'text' && r.text) items.push(textItem(cx - r.m.w / 2, r.base, S, r.text));
+    }
 
     // ---- tier items
     T.forEach((t, ti) => {
@@ -786,13 +816,39 @@
 
   // ---------------------------------------------------------------- layout: all frames
 
-  function layout(parsed, o) {
+  // a relation between two forms: an arrow or a symbol such as > = ≠, with an optional caption above
+  function drawOp(o, items, op, x, mid) {
     const S = o.size;
-    const frames = parsed.frames.map((f, fi) => ({ f, fi })).filter(({ f }) => f.tiers.length);
-    const items = [];
-    const hits = [];
-    if (!frames.length) return { items, hits, width: 0, height: 0, empty: true };
+    const sym = op && op.sym ? op.sym : '→';
+    const cap = op && op.text ? runsOf(op.text) : null;
+    const capSize = S * 0.6;
+    const cm = cap ? measureRuns(o, cap, capSize) : { w: 0 };
+    const A = ARROWS[sym];
+    if (A) {
+      const len = Math.max(S * 1.5, cm.w + S * 0.5);
+      const ax0 = x + S * 0.7, ax1 = ax0 + len;
+      const head = S * 0.28;
+      const headAt = (tip, d) => items.push({ type: 'poly', pts: [[tip, mid], [tip - d * head, mid - head * 0.42], [tip - d * head * 0.78, mid], [tip - d * head, mid + head * 0.42]] });
+      const l0 = A.dir === -1 || A.dir === 2 ? ax0 + head * 0.5 : ax0;
+      const l1 = A.dir === 1 || A.dir === 2 ? ax1 - head * 0.5 : ax1;
+      const offs = A.double ? [-S * 0.07, S * 0.07] : [0];
+      for (const off of offs) items.push({ type: 'line', x1: l0, y1: mid + off, x2: l1, y2: mid + off, w: o.lw });
+      if (A.dir === 1 || A.dir === 2) headAt(ax1, 1);
+      if (A.dir === -1 || A.dir === 2) headAt(ax0, -1);
+      if (cap) items.push({ type: 'text', x: (ax0 + ax1) / 2 - cm.w / 2, y: mid - S * 0.3, size: capSize, runs: cap });
+      return ax1 + S * 0.7;
+    }
+    const gs = S * 1.05;
+    const g = measure(o, sym, gs, false);
+    const w = Math.max(g.w + S * 1.2, cm.w + S * 0.6);
+    const cx = x + S * 0.2 + w / 2;
+    items.push(textItem(cx - g.w / 2, mid + (g.asc - g.desc) / 2, gs, sym));
+    if (cap) items.push({ type: 'text', x: cx - cm.w / 2, y: mid - g.asc / 2 - S * 0.3, size: capSize, runs: cap });
+    return x + S * 0.4 + w;
+  }
 
+  function layoutRow(frames, o, items, hits) {
+    const S = o.size;
     const L = frames.map(({ f }) => layoutFrame(f, o));
     const coreH = Math.max(...L.map((l) => l.coreBottom));
     const mid = coreH / 2;
@@ -811,25 +867,7 @@
     let x = 0;
     frames.forEach(({ f, fi }, k) => {
       const lay = L[k];
-      if (k > 0) {
-        const arrow = f.arrow || {};
-        const cap = arrow.text ? runsOf(arrow.text) : null;
-        const capSize = S * 0.6;
-        const cm = cap ? measureRuns(o, cap, capSize) : { w: 0 };
-        const len = Math.max(S * 1.5, cm.w + S * 0.5);
-        const ax0 = x + S * 0.7, ax1 = ax0 + len;
-        const head = S * 0.28;
-        if (arrow.double) {
-          const off = S * 0.07;
-          items.push({ type: 'line', x1: ax0, y1: mid - off, x2: ax1 - head * 0.6, y2: mid - off, w: o.lw });
-          items.push({ type: 'line', x1: ax0, y1: mid + off, x2: ax1 - head * 0.6, y2: mid + off, w: o.lw });
-        } else {
-          items.push({ type: 'line', x1: ax0, y1: mid, x2: ax1 - head * 0.5, y2: mid, w: o.lw });
-        }
-        items.push({ type: 'poly', pts: [[ax1, mid], [ax1 - head, mid - head * 0.42], [ax1 - head * 0.78, mid], [ax1 - head, mid + head * 0.42]] });
-        if (cap) items.push({ type: 'text', x: (ax0 + ax1) / 2 - cm.w / 2, y: mid - S * 0.3, size: capSize, runs: cap });
-        x = ax1 + S * 0.7;
-      }
+      if (k > 0 || f.arrow) x = drawOp(o, items, f.arrow, k > 0 ? x : x - S * 0.5, mid);
       if (f.label) {
         const runs = runsOf(f.label);
         const m = measureRuns(o, runs, S);
@@ -849,6 +887,35 @@
         right = Math.max(right, gx + g.m.w);
       }
       x = right;
+    });
+  }
+
+  function layout(parsed, o) {
+    const S = o.size;
+    const frames = parsed.frames.map((f, fi) => ({ f, fi })).filter(({ f }) => f.rows.length);
+    const items = [];
+    const hits = [];
+    if (!frames.length) return { items, hits, width: 0, height: 0, empty: true };
+
+    // split into rows at "---"
+    const rows = [];
+    frames.forEach((fr, k) => {
+      if (k === 0 || fr.f.newRow) rows.push([]);
+      rows[rows.length - 1].push(fr);
+    });
+
+    let y = 0;
+    rows.forEach((row) => {
+      const ri = [], rh = [];
+      layoutRow(row, o, ri, rh);
+      const rb = bounds(ri, o);
+      for (const h of rh) { rb.y0 = Math.min(rb.y0, h.y); rb.y1 = Math.max(rb.y1, h.y + h.h); }
+      const dy = y - rb.y0;
+      shift(ri, 0, dy);
+      for (const h of rh) h.y += dy;
+      items.push(...ri);
+      hits.push(...rh);
+      y = rb.y1 + dy + S * 0.9;
     });
 
     const b = bounds(items, o);
@@ -934,9 +1001,10 @@
   function textOf(parsed) {
     let s = '*()[]{}<>x';
     for (const f of parsed.frames) {
-      s += f.label + f.gloss + (f.arrow && f.arrow.text ? f.arrow.text : '');
+      s += f.label + f.gloss + (f.arrow ? (f.arrow.sym || '') + (f.arrow.text || '') : '');
       for (const t of f.tiers) for (const e of t.all) s += e.text + (e.sub || '');
       for (const r of f.rows) {
+        if (r.kind === 'text') s += r.text;
         if (r.kind === 'grid') for (const row of r.rows) { s += row.label; for (const c of row.cols) s += c.mark + [...c.pre, ...c.post].map((u) => u.sub).join(''); }
         if (r.kind === 'tree') { const w = (nd) => { s += nd.label; if (!nd.leaf) nd.children.forEach(w); }; w(r.root); }
       }

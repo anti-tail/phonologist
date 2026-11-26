@@ -54,8 +54,12 @@
         <dd>節点や括弧に <code>=名前</code> を付け、<code>link: T1-@名前</code> でその層の要素とつなぎます。<code>[.AP=ap</code> や <code>[_α=ap</code> のように書きます。</dd>
         <dt>設定</dt>
         <dd><code>option: gridlines</code> で格子の列を縦線で結び、<code>labels-right</code> で格子の行の名前を右に置きます。</dd>
-        <dt>派生</dt>
-        <dd><code>-&gt;</code> だけの行で次の図に移り、矢印でつなぎます。<code>-&gt; 規則の名前</code> と書くと矢印の上に添えます。</dd>
+        <dt>図と図の関係</dt>
+        <dd>記号だけの行で次の図に移り、その記号で前の図とつなぎます。<code>-&gt;</code> <code>=&gt;</code> <code>&lt;-</code> <code>&lt;-&gt;</code> は矢印に、<code>&gt;</code> <code>&lt;</code> <code>&gt;&gt;</code> <code>=</code> <code>≠</code> <code>≡</code> <code>≈</code> <code>~</code> は記号のまま出ます。<code>&gt; 語頭単調化</code> のように書くと、記号の上に変化や規則の名前を添えます。</dd>
+        <dt>段を分ける</dt>
+        <dd><code>---</code> だけの行で次の段に移ります。並行する変化を上下に並べるときに使います。段の最初に記号の行を置くと、その記号から始まります。</dd>
+        <dt>語形だけを書く</dt>
+        <dd><code>form: *HL.M</code> と書くと、その行の文字がそのまま出ます。アステリスクも印や斜体になりません。</dd>
         <dt>番号と語釈</dt>
         <dd><code>label: (5a)</code> で左に番号、<code>gloss: 命 *life*</code> で図の下に語釈を添えます。<code>*…*</code> の部分は斜体になります。</dd>
         <dt>クリックで連結</dt>

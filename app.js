@@ -73,6 +73,29 @@ link: 1-1 2-2
 gloss: \\*kata *shoulder*`,
     },
     {
+      title: '変化の過程',
+      src: `# 五十嵐 (2023) の書き方にならった例。> は音変化、= は合流、--- で次の段へ
+label: HL類
+T: H L M
+S: σ σ
+link: 1-1 2-1 3-2
+> 語頭単調化
+T: H L M
+S: σ σ
+link: 1-1 2-2 3-2
+---
+label: L類
+form: *∅.LM
+>
+form: *∅.LH
+gloss: cf. 杵築 i.nu「犬」
+---
+label: H類
+form: *H.M
+=
+form: *H.M`,
+    },
+    {
       title: '3 層の表示',
       src: `T: H L
 μ: μ μ μ
