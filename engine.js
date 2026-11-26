@@ -12,10 +12,15 @@
   const CLOSERS = ')]}>';
   const BRACKETS = OPENERS + CLOSERS;
 
+  // ---------------------------------------------------------------- escapes
+  // \* \_ \( \) \[ \] \" \\ write the character itself (e.g. \*kata for a reconstructed form)
+
+  const unesc = (s) => s.replace(/\\(.)/g, '$1');
+
   // ---------------------------------------------------------------- parse: tiers
 
   function parseElem(tok) {
-    const e = { text: tok.text, star: false, circle: false, empty: false };
+    const e = { text: unesc(tok.text), star: false, circle: false, empty: false };
     if (tok.quoted) return e;
     let t = tok.text;
     // inline labelled bracket: [  ]  [_α  ]_α  [_α=id
@@ -25,13 +30,13 @@
     if (t.length > 1 && t[0] === '*') { e.star = true; t = t.slice(1); }
     const c = t.match(/^\((.+)\)$/);
     if (c) { e.circle = true; t = c[1]; }
-    e.text = t;
+    e.text = unesc(t);
     return e;
   }
 
   function tokenize(body) {
     const out = [];
-    const re = /"([^"]*)"|(\S+)/g;
+    const re = /"((?:[^"\\]|\\.)*)"|((?:\\.|\S)+)/g;
     let m;
     while ((m = re.exec(body))) {
       out.push(m[1] !== undefined ? { text: m[1], quoted: true } : { text: m[2] });
@@ -61,8 +66,9 @@
           i = j;
         } else {
           let j = i;
-          while (j < tok.length && !BRACKETS.includes(tok[j])) j++;
-          units.push({ mark: tok.slice(i, j) });
+          while (j < tok.length && !BRACKETS.includes(tok[j])) j += tok[j] === '\\' ? 2 : 1;
+          const raw = tok.slice(i, j);
+          units.push({ mark: raw === '.' || raw === '_' ? '' : unesc(raw) });
           i = j;
         }
       }
@@ -71,7 +77,7 @@
     let pending = [];
     for (const u of units) {
       if (u.mark !== undefined) {
-        cols.push({ mark: u.mark === '.' || u.mark === '_' ? '' : u.mark, pre: pending, post: [] });
+        cols.push({ mark: u.mark, pre: pending, post: [] });
         pending = [];
       } else if (u.open) pending.push(u);
       else if (cols.length) cols[cols.length - 1].post.push(u);
@@ -85,7 +91,7 @@
 
   function splitId(s) {
     const m = s.match(/^(.*?)(?:=([^=\s]+))?$/);
-    return { label: m[1], id: m[2] || '' };
+    return { label: unesc(m[1]), id: m[2] || '' };
   }
 
   function parseTree(body) {
@@ -332,16 +338,25 @@
     return { w: m.width, asc: m.actualBoundingBoxAscent, desc: m.actualBoundingBoxDescent };
   }
 
+  // "*italic*" markup → runs; "\*" is a literal asterisk; a lone "*" with no partner stays literal
   function runsOf(text) {
     const runs = [];
-    const re = /\*([^*]+)\*/g;
-    let last = 0, m;
-    while ((m = re.exec(text))) {
-      if (m.index > last) runs.push({ text: text.slice(last, m.index), italic: false });
-      runs.push({ text: m[1], italic: true });
-      last = re.lastIndex;
+    let buf = '', italic = false;
+    const flush = () => { if (buf) runs.push({ text: buf, italic }); buf = ''; };
+    const closerAfter = (i) => {
+      for (let j = i + 1; j < text.length; j++) {
+        if (text[j] === '\\') { j++; continue; }
+        if (text[j] === '*') return true;
+      }
+      return false;
+    };
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i];
+      if (c === '\\' && i + 1 < text.length) { buf += text[++i]; continue; }
+      if (c === '*' && (italic || closerAfter(i))) { flush(); italic = !italic; continue; }
+      buf += c;
     }
-    if (last < text.length) runs.push({ text: text.slice(last), italic: false });
+    flush();
     return runs;
   }
 
@@ -388,7 +403,9 @@
         if (e.isBracket) { const b = bracketBox(o, e.text, e.sub, S); e.w = b.w; e.bw = b.w; const m = measure(o, e.text, S, false); e.asc = m.asc; e.desc = m.desc; continue; }
         if (e.empty) { e.w = S * 0.6; e.asc = S * 0.7; e.desc = 0; }
         else Object.assign(e, measure(o, e.text, S, false));
-        e.bw = e.w;
+        // a reconstruction asterisk hangs to the left: lines meet the form itself
+        e.pre = !e.empty && e.text.length > 1 && e.text[0] === '*' ? measure(o, '*', S, false).w : 0;
+        e.bw = e.w + e.pre;
         if (e.circle) {
           e.ry = (e.asc + e.desc) / 2 + S * 0.2;
           e.rx = Math.max(e.w / 2 + S * 0.22, e.ry);
@@ -592,7 +609,7 @@
         if (e.isBracket) { items.push(...bracketItems(o, e.x - e.w / 2, t.base, e.text, e.sub, S)); return; }
       });
       t.elems.forEach((e, ei) => {
-        if (!e.empty) items.push(textItem(e.x - e.w / 2, t.base, S, e.text));
+        if (!e.empty) items.push(textItem(e.x - (e.w - e.pre) / 2 - e.pre, t.base, S, e.text));
         if (e.circle) {
           e.cy = t.base + (e.desc - e.asc) / 2;
           items.push({ type: 'ellipse', cx: e.x, cy: e.cy, rx: e.rx, ry: e.ry });

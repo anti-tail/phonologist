@@ -64,6 +64,15 @@ link: 1-1 1x2 2~2 2-3
 gloss: H の切断と、どこにもつながらない H`,
     },
     {
+      title: '再建形',
+      src: `# \\* と書くとアステリスクがそのまま出ます
+label: (1)
+T: H L
+S: \\*ka ta
+link: 1-1 2-2
+gloss: \\*kata *shoulder*`,
+    },
+    {
       title: '3 層の表示',
       src: `T: H L
 μ: μ μ μ
