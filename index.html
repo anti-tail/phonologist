@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>phonologist — 自律分節の連結図をつくる</title>
+<meta name="description" content="自律分節音韻論の音調連結図をブラウザで組み、SVG や PNG で保存できます。日本語のかなや漢字にも対応しています。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link id="font-css" rel="stylesheet" href="https://fonts.googleapis.com/css2?family=BIZ+UDGothic&family=BIZ+UDPGothic:wght@400;700&family=BIZ+UDPMincho&family=Charis+SIL:ital@0;1&family=Gentium+Book+Plus:ital@0;1&family=Klee+One&family=Noto+Sans:ital@0;1&family=Noto+Sans+JP:wght@400&family=Noto+Serif:ital@0;1&family=Noto+Serif+JP:wght@400&family=Shippori+Mincho&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="masthead">
+  <a class="logo" href="./" aria-label="phonologist"><span id="logo"></span></a>
+  <p class="tagline">自律分節の連結図をつくる</p>
+</header>
+
+<main class="workspace">
+  <section class="editor" aria-label="入力">
+    <div class="field-head">
+      <label for="src">図の中身</label>
+      <select id="examples" aria-label="例を読み込む">
+        <option value="">例を読み込む</option>
+      </select>
+    </div>
+    <textarea id="src" spellcheck="false" autocapitalize="off" autocomplete="off"></textarea>
+    <div id="notices" class="notices" aria-live="polite"></div>
+
+    <details class="howto">
+      <summary>書き方</summary>
+      <dl>
+        <dt>層</dt>
+        <dd>1 行に 1 つの層を、上から順に書きます。行の頭に層の名前を置き、コロンのあとに要素を空白で区切って並べます。<code>T: H L</code></dd>
+        <dt>連結</dt>
+        <dd><code>link:</code> の行に、上の層の何番目と下の層の何番目をつなぐかを書きます。<code>link: 1-1 2-2,3</code> は H を 1 番目に、L を 2 番目と 3 番目につなぎます。</dd>
+        <dt>線の種類</dt>
+        <dd><code>-</code> 実線、<code>~</code> 破線、<code>.</code> 点線、<code>x</code> 切断の印。</dd>
+        <dt>3 層以上</dt>
+        <dd>1 層目と 2 層目以外をつなぐときは、層の名前を添えます。<code>link: μ1-S1 μ2-S2</code></dd>
+        <dt>要素の印</dt>
+        <dd><code>*こ</code> で上にアクセントの印、<code>(H)</code> で丸囲み、<code>_</code> で何も書かない位置。空白を含む要素は <code>"a b"</code> のように引用符で囲みます。</dd>
+        <dt>派生</dt>
+        <dd><code>-&gt;</code> だけの行で次の図に移り、矢印でつなぎます。<code>-&gt; 規則の名前</code> と書くと矢印の上に添えます。</dd>
+        <dt>番号と語釈</dt>
+        <dd><code>label: (5a)</code> で左に番号、<code>gloss: 命 *life*</code> で図の下に語釈を添えます。<code>*…*</code> の部分は斜体になります。</dd>
+        <dt>クリックで連結</dt>
+        <dd>右の図で要素を 2 つ順にクリックすると、その間の線が 実線、破線、切断、なし の順に切り替わります。</dd>
+      </dl>
+    </details>
+
+    <fieldset class="options">
+      <legend>見た目</legend>
+      <label>欧文フォント
+        <select id="opt-latin"></select>
+      </label>
+      <label>和文フォント
+        <select id="opt-ja"></select>
+      </label>
+      <label>文字の大きさ <output id="out-size"></output>
+        <input id="opt-size" type="range" min="14" max="72" step="1">
+      </label>
+      <label>層の間隔 <output id="out-tier"></output>
+        <input id="opt-tier" type="range" min="0.6" max="4" step="0.1">
+      </label>
+      <label>要素の間隔 <output id="out-gap"></output>
+        <input id="opt-gap" type="range" min="0.1" max="2.5" step="0.05">
+      </label>
+      <label>線の太さ <output id="out-lw"></output>
+        <input id="opt-lw" type="range" min="0.5" max="4" step="0.1">
+      </label>
+      <div class="row">
+        <label class="inline">文字と線の色 <input id="opt-ink" type="color"></label>
+        <label class="inline"><input id="opt-transparent" type="checkbox"> 背景を透明にする</label>
+      </div>
+    </fieldset>
+  </section>
+
+  <section class="stage" aria-label="プレビュー">
+    <div id="sheet" class="sheet">
+      <div id="preview" class="preview"></div>
+    </div>
+    <div class="actions">
+      <button id="dl-svg" type="button">SVG を保存</button>
+      <button id="dl-png" type="button">PNG を保存</button>
+      <label class="inline small">倍率
+        <select id="opt-scale">
+          <option value="2">2 倍</option>
+          <option value="3">3 倍</option>
+          <option value="4" selected>4 倍</option>
+          <option value="6">6 倍</option>
+        </select>
+      </label>
+      <button id="copy-png" type="button" class="quiet">PNG をコピー</button>
+      <button id="copy-link" type="button" class="quiet">共有用リンクをコピー</button>
+    </div>
+    <label class="inline small embed"><input id="opt-embed" type="checkbox" checked> SVG に使った文字のフォントを埋め込む</label>
+    <p id="status" class="status" role="status"></p>
+  </section>
+</main>
+
+<footer class="colophon">
+  <p>入力した内容はこの端末の中だけで処理され、どこにも送られません。フォントは Google Fonts から読み込みます。<a href="https://github.com/anti-tail/phonologist">ソースコード</a></p>
+</footer>
+
+<script src="engine.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
