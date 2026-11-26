@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>phonologist — 自律分節の連結図をつくる</title>
-<meta name="description" content="自律分節音韻論の音調連結図をブラウザで組み、SVG や PNG で保存できます。日本語のかなや漢字にも対応しています。">
+<title>phonologist — 自律分節の連結図と韻律の図をつくる</title>
+<meta name="description" content="自律分節音韻論の音調連結図や韻律格子、括弧つき格子、韻律樹形をブラウザで組み、SVG や PNG で保存できます。日本語のかなや漢字にも対応しています。">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link id="font-css" rel="stylesheet" href="https://fonts.googleapis.com/css2?family=BIZ+UDGothic&family=BIZ+UDPGothic:wght@400;700&family=BIZ+UDPMincho&family=Charis+SIL:ital@0;1&family=Gentium+Book+Plus:ital@0;1&family=Klee+One&family=Noto+Sans:ital@0;1&family=Noto+Sans+JP:wght@400&family=Noto+Serif:ital@0;1&family=Noto+Serif+JP:wght@400&family=Shippori+Mincho&display=swap">
@@ -13,7 +13,7 @@
 <body>
 <header class="masthead">
   <a class="logo" href="./" aria-label="phonologist"><span id="logo"></span></a>
-  <p class="tagline">自律分節の連結図をつくる</p>
+  <p class="tagline">自律分節の連結図と韻律の図をつくる</p>
 </header>
 
 <main class="workspace">
@@ -40,6 +40,18 @@
         <dd>1 層目と 2 層目以外をつなぐときは、層の名前を添えます。<code>link: μ1-S1 μ2-S2</code></dd>
         <dt>要素の印</dt>
         <dd><code>*こ</code> で上にアクセントの印、<code>(H)</code> で丸囲み、<code>_</code> で何も書かない位置。空白を含む要素は <code>"a b"</code> のように引用符で囲みます。</dd>
+        <dt>韻律格子</dt>
+        <dd><code>grid:</code> の行を層のすぐ上に書くと、その層の要素ごとに 1 列の格子になります。上の行から順に書き、<code>.</code> は印のない位置です。<code>grid: 2 1 3 1</code> のように数だけを並べると、列の高さとして読みます。</dd>
+        <dt>括弧つき格子</dt>
+        <dd><code>grid line 0: (x x) (x x)</code> のように印に丸括弧や角括弧を付けます。<code>x)_F</code> で括弧に下付きの名前が付きます。<code>grid</code> のあとの文字は行の名前として出ます。</dd>
+        <dt>樹形</dt>
+        <dd><code>tree: [ [.s s w ] [.w s w ] ]</code> を層のすぐ上に書くと、葉がその層の要素に対応する樹形になります。<code>[.名前</code> が節点の名前、<code>.</code> は名前のない葉です。層の下に根を置くときは、層のあとに <code>tree-below:</code> と書きます。</dd>
+        <dt>括弧つき範疇</dt>
+        <dd>層の中に <code>[_α</code> や <code>]_ι</code> を置くと、下付きの名前が付いた括弧になります。番号には数えません。</dd>
+        <dt>節点や括弧への連結</dt>
+        <dd>節点や括弧に <code>=名前</code> を付け、<code>link: T1-@名前</code> でその層の要素とつなぎます。<code>[.AP=ap</code> や <code>[_α=ap</code> のように書きます。</dd>
+        <dt>設定</dt>
+        <dd><code>option: gridlines</code> で格子の列を縦線で結び、<code>labels-right</code> で格子の行の名前を右に置きます。</dd>
         <dt>派生</dt>
         <dd><code>-&gt;</code> だけの行で次の図に移り、矢印でつなぎます。<code>-&gt; 規則の名前</code> と書くと矢印の上に添えます。</dd>
         <dt>番号と語釈</dt>

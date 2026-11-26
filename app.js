@@ -71,6 +71,55 @@ S: ka n ta
 link: 1-1 2-2,3
 link: μ1-S1 μ2-S2 μ3-S3`,
     },
+    {
+      title: '括弧つき格子 Halle & Idsardi 式',
+      src: `# gridlines で列を縦線で結び、labels-right で行の名前を右に置く
+option: gridlines labels-right
+grid line 2: x . . . . .
+grid line 1: (x . x . x .)
+grid line 0: (x x) (x x) (x x)
+S: pa ta ka ma na sa`,
+    },
+    {
+      title: '格子を列の高さで書く',
+      src: `grid: 2 1 3 1
+S: A la ba ma`,
+    },
+    {
+      title: '格子と s/w の樹形 Liberman & Prince 式',
+      src: `grid: 2 1 3 1
+S: Mis si ssip pi
+tree-below: [ [.w s w ] [.s s w ] ]`,
+    },
+    {
+      title: '韻律範疇の樹形',
+      src: `tree: [.ω [.F . . ] [.F . . ] ]
+S: ア メ リ カ`,
+    },
+    {
+      title: '格子と声調層',
+      src: `grid: 1 2 1
+S: こ *こ ろ
+T: L H L
+link: 1-1 2-2 3-3
+gloss: 心`,
+    },
+    {
+      title: '括弧つき範疇と声調の多重連結',
+      src: `# Lα を最初の拍と α の左括弧の両方に、L% を ι の右括弧につなぐ
+S: [_ι [_α=ap は *し が ]_α ]_ι=ip
+T: Lα H* L L%
+link: 1-1 2-2 3-3
+link: T1-@ap T4-@ip
+gloss: 橋が`,
+    },
+    {
+      title: '樹形の節点に音調をつなぐ',
+      src: `T: %L H-
+tree: [.AP=ap [.ω . . . . ] ]
+S: さ く ら が
+link: T1-@ap T2-@ap`,
+    },
   ];
 
   const DEFAULTS = { latin: 'Charis SIL', ja: 'Noto Serif JP', size: 30, tier: 1.7, gap: 0.9, lw: 1.3, ink: '#1b1e23', transparent: false, scale: 4, embed: true };
