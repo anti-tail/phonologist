@@ -1,6 +1,10 @@
 # phonologist
 
-自律分節音韻論の連結図（音調と拍・音節などを線で結んだ図）や、韻律格子・括弧つき格子・韻律樹形をブラウザで組み、SVG や PNG で保存するためのページです。
+音韻論の図をブラウザで組み、SVG や PNG で保存するためのページです。上のタブで 3 種類の図を切り替えます。
+
+- 連結図：自律分節音韻論の連結図（音調と拍・音節などを線で結んだ図）、韻律格子、括弧つき格子、韻律樹形
+- 母音図：IPA の母音図、長方形・三角形の母音図、フォルマント図
+- タブロー：最適性理論のタブロー、調和文法と MaxEnt のタブロー、比較タブロー
 
 https://anti-tail.github.io/phonologist/
 
@@ -76,6 +80,37 @@ link: 1-1 2-2 3-3
 link: T1-@ap T4-@ip
 ```
 
+## 母音図の書き方
+
+```
+vowels: i e a o u
+```
+
+- `vowels:` に並べた母音を IPA の母音図での位置に置きます。円唇母音は点の右、非円唇母音は点の左に出ます。
+- `ɯ: 狭 準後舌 非円唇` や `ɯ: close near-back unrounded` で位置を指定します。高さは 狭 準狭 半狭 中 半広 準広 広、前後は 前舌 準前舌 中舌 準後舌 後舌 です。0 から 1 の数で `ɯ: 0.1 0.8`（高さ、前後）とも書けます。
+- `chart:` で形を選びます。`ipa`（既定）、`plain`、`simple`、`rectangle`、`triangle`、`formant`。
+- `chart: formant` では `i: 300 2300` のように F1 と F2 を Hz で書きます。`option: bark` で Bark 尺度になります。
+- `arrow: a > ɛ > e > i` で矢印を描きます。`~>` は破線、`-` は矢じりのない線です。
+- `option:` に `ja`（軸の名前を日本語に）、`three`（高さを 3 段に）、`no-labels`、`dots`、`no-dots` を書けます。`title:` と `caption:` で題と注を添えます。
+
+## タブローの書き方
+
+```
+input: /pat/
+constraints: *Coda >> Max >> Dep
+cand: pat | * | |
+cand: pa | | * |
+cand: pa.tə | | | *
+```
+
+- `constraints:` の `>>` は順位づけで実線、`,` は順位づけのない隣どうしで破線になります。破線でつないだ制約の違反は合わせて比べます。
+- `cand:` の候補のあとに `|` で区切って違反を書きます。`*` の数でも数字でもかまいません。
+- 勝者の ☞、致命的な違反の `!`、それより右の網かけは自動で付きます。自分で `*!` と書けばその位置に従います。
+- `intended: b` で想定する勝者を指定すると、順位から求めた勝者が別のときに ☹ が付きます。
+- `weights: 3 2 2` で調和文法（H の欄）、`type: maxent` で MaxEnt（H と P の欄）になります。候補の行の `||` のあとに観察された頻度を書くと Obs の欄が出ます。
+- `type: comparative` で比較タブロー（W と L）になり、L より上に W がない行を知らせます。
+- `option:` に `numbers`、`no-letters`、`no-shade`、`no-smallcaps` を書けます。
+
 ## 保存
 
 - PNG は 2〜6 倍の解像度で保存できます。
@@ -84,4 +119,4 @@ link: T1-@ap T4-@ip
 
 ## つくり
 
-ビルドの要らない静的ページです。`engine.js` が入力の読み取り、配置、SVG と Canvas への描画を受け持ち、`app.js` が画面の操作を受け持ちます。フォントは Google Fonts（Charis SIL、Gentium Book Plus、Noto Serif / Sans、Noto Serif JP / Sans JP、しっぽり明朝、BIZ UDP明朝 / ゴシック、クレー）を使います。
+ビルドの要らない静的ページです。`engine.js` が連結図の読み取りと配置、それに 3 種類の図に共通する SVG と Canvas への描画を受け持ちます。`vowel.js` が母音図、`tableau.js` がタブロー、`app.js` が画面の操作を受け持ちます。フォントは Google Fonts（Charis SIL、Gentium Book Plus、Noto Serif / Sans、Noto Serif JP / Sans JP、しっぽり明朝、BIZ UDP明朝 / ゴシック、クレー、☞ などの記号に Noto Sans Symbols 2）を使います。

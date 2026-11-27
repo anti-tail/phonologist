@@ -797,6 +797,7 @@
       if (it.type === 'line') grow(Math.min(it.x1, it.x2), Math.min(it.y1, it.y2), Math.max(it.x1, it.x2), Math.max(it.y1, it.y2));
       else if (it.type === 'ellipse') grow(it.cx - it.rx, it.cy - it.ry, it.cx + it.rx, it.cy + it.ry);
       else if (it.type === 'poly') for (const [px, py] of it.pts) grow(px, py, px, py);
+      else if (it.type === 'rect') grow(it.x, it.y, it.x + it.w, it.y + it.h);
       else {
         const m = measureRuns(o, it.runs.map((r) => ({ ...r })), it.size);
         grow(it.x, it.y - m.asc, it.x + m.w, it.y + m.desc);
@@ -810,7 +811,7 @@
       if (it.type === 'line') { it.x1 += dx; it.x2 += dx; it.y1 += dy; it.y2 += dy; }
       else if (it.type === 'ellipse') { it.cx += dx; it.cy += dy; }
       else if (it.type === 'poly') { it.pts = it.pts.map(([x, y]) => [x + dx, y + dy]); }
-      else { it.x += dx; it.y += dy; }
+      else { it.x += dx; it.y += dy; }  // text and rect
     }
   }
 
@@ -932,6 +933,8 @@
   const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   const n = (v) => +v.toFixed(2);
 
+  // item types: text {x,y,size,runs,color?} · line {x1,y1,x2,y2,w,dash?,color?,link?}
+  //             ellipse {cx,cy,rx,ry,fill?,stroke?} · poly {pts,color?} · rect {x,y,w,h,fill?,stroke?,sw?}
   function toSVG(lay, o, extra = {}) {
     const W = lay.width, H = lay.height;
     const ink = o.ink, line = extra.lineColor || ink;
@@ -941,20 +944,26 @@
     s += `<g font-family="${esc(o.family)}" fill="${ink}">`;
     for (const it of lay.items) {
       if (it.type === 'text') {
-        s += `<text x="${n(it.x)}" y="${n(it.y)}" font-size="${n(it.size)}" xml:space="preserve">`;
+        s += `<text x="${n(it.x)}" y="${n(it.y)}" font-size="${n(it.size)}"${it.color ? ` fill="${it.color}"` : ''} xml:space="preserve">`;
         for (const r of it.runs) s += r.italic ? `<tspan font-style="italic">${esc(r.text)}</tspan>` : esc(r.text);
         s += '</text>';
       } else if (it.type === 'line') {
-        const c = it.link ? line : ink;
-        s += `<line x1="${n(it.x1)}" y1="${n(it.y1)}" x2="${n(it.x2)}" y2="${n(it.y2)}" stroke="${c}" stroke-width="${n(it.w)}" stroke-linecap="round"${it.dash ? ` stroke-dasharray="${it.dash.map(n).join(' ')}"` : ''}/>`;
+        const c = it.color || (it.link ? line : ink);
+        s += `<line x1="${n(it.x1)}" y1="${n(it.y1)}" x2="${n(it.x2)}" y2="${n(it.y2)}" stroke="${c}" stroke-width="${n(it.w)}" stroke-linecap="${it.cap || 'round'}"${it.dash ? ` stroke-dasharray="${it.dash.map(n).join(' ')}"` : ''}/>`;
       } else if (it.type === 'ellipse') {
-        s += `<ellipse cx="${n(it.cx)}" cy="${n(it.cy)}" rx="${n(it.rx)}" ry="${n(it.ry)}" fill="none" stroke="${ink}" stroke-width="${n(o.lw)}"/>`;
+        const fill = it.fill ? (it.fill === true ? ink : it.fill) : 'none';
+        const stroke = it.stroke === false ? 'none' : ink;
+        s += `<ellipse cx="${n(it.cx)}" cy="${n(it.cy)}" rx="${n(it.rx)}" ry="${n(it.ry)}" fill="${fill}" stroke="${stroke}" stroke-width="${n(it.sw || o.lw)}"${it.dash ? ` stroke-dasharray="${it.dash.map(n).join(' ')}"` : ''}/>`;
       } else if (it.type === 'poly') {
-        s += `<polygon points="${it.pts.map(([x, y]) => n(x) + ',' + n(y)).join(' ')}" fill="${ink}"/>`;
+        s += `<polygon points="${it.pts.map(([x, y]) => n(x) + ',' + n(y)).join(' ')}" fill="${it.color || ink}"/>`;
+      } else if (it.type === 'rect') {
+        const fill = it.fill ? (it.fill === true ? ink : it.fill) : 'none';
+        const stroke = it.stroke ? (it.stroke === true ? ink : it.stroke) : 'none';
+        s += `<rect x="${n(it.x)}" y="${n(it.y)}" width="${n(it.w)}" height="${n(it.h)}" fill="${fill}" stroke="${stroke}"${it.stroke ? ` stroke-width="${n(it.sw || o.lw)}"` : ''}/>`;
       }
     }
     s += '</g>';
-    if (extra.hits) {
+    if (extra.hits && lay.hits && lay.hits.length) {
       s += '<g class="hits">';
       for (const h of lay.hits) {
         s += `<rect class="hit" data-f="${h.f}" data-t="${h.t}" data-i="${h.i}" x="${n(h.x - 3)}" y="${n(h.y - 3)}" width="${n(h.w + 6)}" height="${n(h.h + 6)}" rx="3"/>`;
@@ -971,28 +980,37 @@
     const g = c.getContext('2d');
     g.scale(scale, scale);
     if (!o.transparent) { g.fillStyle = o.bg || '#ffffff'; g.fillRect(0, 0, lay.width, lay.height); }
-    g.fillStyle = o.ink; g.strokeStyle = o.ink; g.lineCap = 'round';
+    g.lineCap = 'round';
     for (const it of lay.items) {
       if (it.type === 'text') {
         let x = it.x;
         g.textBaseline = 'alphabetic';
+        g.fillStyle = it.color || o.ink;
         for (const r of it.runs) {
           g.font = fontStr(o, it.size, r.italic);
           g.fillText(r.text, x, it.y);
           x += g.measureText(r.text).width;
         }
       } else if (it.type === 'line') {
+        g.strokeStyle = it.color || o.ink;
+        g.lineCap = it.cap || 'round';
         g.lineWidth = it.w;
         g.setLineDash(it.dash || []);
         g.beginPath(); g.moveTo(it.x1, it.y1); g.lineTo(it.x2, it.y2); g.stroke();
         g.setLineDash([]);
+        g.lineCap = 'round';
       } else if (it.type === 'ellipse') {
-        g.lineWidth = o.lw;
-        g.beginPath(); g.ellipse(it.cx, it.cy, it.rx, it.ry, 0, 0, Math.PI * 2); g.stroke();
+        g.beginPath(); g.ellipse(it.cx, it.cy, it.rx, it.ry, 0, 0, Math.PI * 2);
+        if (it.fill) { g.fillStyle = it.fill === true ? o.ink : it.fill; g.fill(); }
+        if (it.stroke !== false) { g.strokeStyle = o.ink; g.lineWidth = it.sw || o.lw; g.setLineDash(it.dash || []); g.stroke(); g.setLineDash([]); }
       } else if (it.type === 'poly') {
+        g.fillStyle = it.color || o.ink;
         g.beginPath();
         it.pts.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y)));
         g.closePath(); g.fill();
+      } else if (it.type === 'rect') {
+        if (it.fill) { g.fillStyle = it.fill === true ? o.ink : it.fill; g.fillRect(it.x, it.y, it.w, it.h); }
+        if (it.stroke) { g.strokeStyle = it.stroke === true ? o.ink : it.stroke; g.lineWidth = it.sw || o.lw; g.strokeRect(it.x, it.y, it.w, it.h); }
       }
     }
     return c;
@@ -1012,5 +1030,18 @@
     return s;
   }
 
+  // finish a layout: frame everything with a margin and report the size
+  function finish(items, hits, o) {
+    const b = bounds(items, o);
+    for (const h of hits) { b.x0 = Math.min(b.x0, h.x); b.y0 = Math.min(b.y0, h.y); b.x1 = Math.max(b.x1, h.x + h.w); b.y1 = Math.max(b.y1, h.y + h.h); }
+    if (!isFinite(b.x0)) return { items, hits, width: 0, height: 0, empty: true };
+    const M = Math.round(o.size * 0.5);
+    const dx = M - b.x0, dy = M - b.y0;
+    shift(items, dx, dy);
+    for (const h of hits) { h.x += dx; h.y += dy; }
+    return { items, hits, width: Math.ceil(b.x1 - b.x0 + 2 * M), height: Math.ceil(b.y1 - b.y0 + 2 * M) };
+  }
+
   global.Autoseg = { parse, layout, toSVG, toCanvas, crossings, serializeLinks, textOf, runsOf };
+  global.PhonoKit = { measure, measureRuns, runsOf, textItem, bounds, shift, finish, unesc, fontStr };
 })(window);

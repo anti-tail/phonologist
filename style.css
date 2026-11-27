@@ -58,6 +58,28 @@ a { color: var(--pen); }
 
 .editor { display: flex; flex-direction: column; gap: 0.9rem; min-width: 0; }
 
+/* mode switch: three kinds of figure */
+.mode-tabs { display: flex; gap: 0; border-bottom: 1px solid var(--rule); }
+.mode-tab {
+  background: transparent;
+  color: var(--muted);
+  border: 0;
+  border-bottom: 3px solid transparent;
+  border-radius: 0;
+  padding: 0.45rem 0.9rem 0.4rem;
+  margin-bottom: -1px;
+  font-weight: 700;
+}
+.mode-tab:hover { background: transparent; color: var(--ink); }
+.mode-tab[aria-selected="true"] { color: var(--pen); border-bottom-color: var(--pen); }
+
+.for-mode { display: none; }
+body[data-mode="auto"] .for-mode[data-for="auto"],
+body[data-mode="vowel"] .for-mode[data-for="vowel"],
+body[data-mode="tableau"] .for-mode[data-for="tableau"] { display: revert; }
+.options label.for-mode { display: none; }
+body[data-mode="auto"] .options label.for-mode[data-for="auto"] { display: flex; }
+
 .field-head {
   display: flex;
   justify-content: space-between;

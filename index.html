@@ -3,21 +3,26 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>phonologist — 自律分節の連結図と韻律の図をつくる</title>
-<meta name="description" content="自律分節音韻論の音調連結図や韻律格子、括弧つき格子、韻律樹形をブラウザで組み、SVG や PNG で保存できます。日本語のかなや漢字にも対応しています。">
+<title>phonologist — 音韻論の図をつくる</title>
+<meta name="description" content="自律分節音韻論の連結図、韻律格子や樹形、母音図、最適性理論のタブローをブラウザで組み、SVG や PNG で保存できます。日本語のかなや漢字にも対応しています。">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link id="font-css" rel="stylesheet" href="https://fonts.googleapis.com/css2?family=BIZ+UDGothic&family=BIZ+UDPGothic:wght@400;700&family=BIZ+UDPMincho&family=Charis+SIL:ital@0;1&family=Gentium+Book+Plus:ital@0;1&family=Klee+One&family=Noto+Sans:ital@0;1&family=Noto+Sans+JP:wght@400&family=Noto+Serif:ital@0;1&family=Noto+Serif+JP:wght@400&family=Shippori+Mincho&display=swap">
+<link id="font-css" rel="stylesheet" href="https://fonts.googleapis.com/css2?family=BIZ+UDGothic&family=BIZ+UDPGothic:wght@400;700&family=BIZ+UDPMincho&family=Charis+SIL:ital@0;1&family=Gentium+Book+Plus:ital@0;1&family=Klee+One&family=Noto+Sans:ital@0;1&family=Noto+Sans+JP:wght@400&family=Noto+Serif:ital@0;1&family=Noto+Serif+JP:wght@400&family=Noto+Sans+Symbols+2&family=Shippori+Mincho&display=swap">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <header class="masthead">
   <a class="logo" href="./" aria-label="phonologist"><span id="logo"></span></a>
-  <p class="tagline">自律分節の連結図と韻律の図をつくる</p>
+  <p class="tagline">音韻論の図をつくる</p>
 </header>
 
 <main class="workspace">
   <section class="editor" aria-label="入力">
+    <div class="mode-tabs" role="tablist" aria-label="図の種類">
+      <button type="button" class="mode-tab" role="tab" data-mode="auto" aria-selected="true">連結図</button>
+      <button type="button" class="mode-tab" role="tab" data-mode="vowel" aria-selected="false" tabindex="-1">母音図</button>
+      <button type="button" class="mode-tab" role="tab" data-mode="tableau" aria-selected="false" tabindex="-1">タブロー</button>
+    </div>
     <div class="field-head">
       <label for="src">図の中身</label>
       <select id="examples" aria-label="例を読み込む">
@@ -29,7 +34,37 @@
 
     <details class="howto">
       <summary>書き方</summary>
-      <dl>
+      <dl class="for-mode" data-for="vowel">
+        <dt>図の形</dt>
+        <dd><code>chart: ipa</code> が IPA の母音図です。ほかに <code>plain</code>（外枠だけ）、<code>simple</code>（横線だけ）、<code>rectangle</code>（長方形）、<code>triangle</code>（三角形）、<code>formant</code>（フォルマント図）があります。</dd>
+        <dt>母音を IPA の位置に置く</dt>
+        <dd><code>vowels: i e a o u</code> と並べると、IPA の母音図での位置に置きます。円唇母音は点の右、非円唇母音は点の左に出ます。</dd>
+        <dt>位置を指定する</dt>
+        <dd><code>ɯ: 狭 準後舌 非円唇</code> や <code>ɯ: close near-back unrounded</code> のように、記号のあとに高さ、前後、円唇性を書きます。高さは 狭 準狭 半狭 中 半広 準広 広、前後は 前舌 準前舌 中舌 準後舌 後舌 です。<code>ɯ: 0.1 0.8</code> と 0 から 1 の数で高さと前後を指定することもできます。</dd>
+        <dt>フォルマント図</dt>
+        <dd><code>chart: formant</code> のとき、<code>i: 300 2300</code> のように F1 と F2 を Hz で書きます。F2 は右へ行くほど低く、F1 は下へ行くほど高くなります。<code>option: bark</code> で Bark 尺度になります。</dd>
+        <dt>矢印</dt>
+        <dd><code>arrow: a &gt; ɛ &gt; e &gt; i</code> で連鎖推移や二重母音の動きを描きます。<code>~&gt;</code> は破線の矢印、<code>-</code> は矢じりのない線です。</dd>
+        <dt>設定</dt>
+        <dd><code>option: ja</code> で軸の名前を日本語に、<code>three</code> で高さを 3 段に、<code>no-labels</code> で軸の名前を消します。<code>dots</code> ですべての母音に点を付け、<code>no-dots</code> で点を消します。<code>title:</code> で上に題、<code>caption:</code> で下に注を添えます。</dd>
+      </dl>
+      <dl class="for-mode" data-for="tableau">
+        <dt>入力と制約</dt>
+        <dd><code>input: /pat/</code> で左上に入力を書きます。<code>constraints: *Coda &gt;&gt; Max, Dep</code> の <code>&gt;&gt;</code> は順位づけで実線、<code>,</code> は順位づけのない隣どうしで破線になります。制約名は小型の大文字で出ます。</dd>
+        <dt>候補</dt>
+        <dd><code>cand: pa.tə | | * |</code> のように、候補のあとに <code>|</code> で区切って制約ごとの違反を書きます。<code>*</code> の数でも <code>2</code> のような数でもかまいません。</dd>
+        <dt>自動で付くもの</dt>
+        <dd>順位から勝者を求めて ☞ を付け、敗者の致命的な違反に <code>!</code> を付け、それより右の欄に網をかけます。自分で <code>*!</code> と書いた欄があれば、その位置に従います。</dd>
+        <dt>想定した勝者</dt>
+        <dd><code>intended: b</code> と書くと b に ☞ が付き、順位から求めた勝者が別なら ☹ が付きます。</dd>
+        <dt>調和文法と MaxEnt</dt>
+        <dd><code>weights: 3 2 2</code> で重みを付けると調和文法になり、H の欄が出ます。<code>type: maxent</code> では H と確率 P の欄が出ます。候補の行の <code>||</code> のあとに観察された頻度を書くと Obs の欄が出ます。</dd>
+        <dt>比較タブロー</dt>
+        <dd><code>type: comparative</code> で、勝者と敗者の組ごとに W と L を並べます。L より上に W がない行があれば知らせます。</dd>
+        <dt>設定</dt>
+        <dd><code>option: numbers</code> で違反を数で、<code>no-letters</code> で a. b. を消し、<code>no-shade</code> で網かけを消し、<code>no-smallcaps</code> で制約名を普通の文字にします。<code>caption:</code> で下に注を添えます。</dd>
+      </dl>
+      <dl class="for-mode" data-for="auto">
         <dt>層</dt>
         <dd>1 行に 1 つの層を、上から順に書きます。行の頭に層の名前を置き、コロンのあとに要素を空白で区切って並べます。<code>T: H L</code></dd>
         <dt>連結</dt>
@@ -78,10 +113,10 @@
       <label>文字の大きさ <output id="out-size"></output>
         <input id="opt-size" type="range" min="14" max="72" step="1">
       </label>
-      <label>層の間隔 <output id="out-tier"></output>
+      <label class="for-mode" data-for="auto">層の間隔 <output id="out-tier"></output>
         <input id="opt-tier" type="range" min="0.6" max="4" step="0.1">
       </label>
-      <label>要素の間隔 <output id="out-gap"></output>
+      <label class="for-mode" data-for="auto">要素の間隔 <output id="out-gap"></output>
         <input id="opt-gap" type="range" min="0.1" max="2.5" step="0.05">
       </label>
       <label>線の太さ <output id="out-lw"></output>
@@ -122,6 +157,8 @@
 </footer>
 
 <script src="engine.js"></script>
+<script src="vowel.js"></script>
+<script src="tableau.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

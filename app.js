@@ -2,6 +2,7 @@
   'use strict';
   const A = window.Autoseg;
   const $ = (s) => document.querySelector(s);
+  const SYMBOLS_FONT = 'Noto Sans Symbols 2';
 
   const LATIN = [
     { name: 'Charis SIL', fallback: 'serif' },
@@ -154,6 +155,125 @@ link: T1-@ap T2-@ap`,
     },
   ];
 
+  const VOWEL_EXAMPLES = [
+    {
+      title: 'IPA の母音図',
+      src: `vowels: i y ɨ ʉ ɯ u ɪ ʏ ʊ e ø ɘ ɵ ɤ o ə ɛ œ ɜ ɞ ʌ ɔ æ ɐ a ɶ ɑ ɒ`,
+    },
+    {
+      title: '東京方言の短母音',
+      src: `option: ja
+i: 狭 前舌 非円唇
+e: 中 前舌 非円唇
+a: 広 中舌 非円唇
+o: 中 後舌 円唇
+ɯ: 狭 準後舌 非円唇`,
+    },
+    {
+      title: '連鎖推移の矢印',
+      src: `# > は矢印、~> は破線の矢印、- は矢じりのない線
+vowels: i e ɛ a u o ɔ ə
+arrow: a > ɛ > e > i
+arrow: ɔ > o > u
+arrow: i ~> ə`,
+    },
+    {
+      title: '中舌母音のある体系',
+      src: `chart: rectangle
+option: ja
+vowels: i ɨ u e o a`,
+    },
+    {
+      title: '三角形の図と 3 段の高さ',
+      src: `chart: triangle
+option: three
+vowels: i u e o a`,
+    },
+    {
+      title: 'フォルマント図',
+      src: `chart: formant
+# 母音: F1 F2 の順に Hz で。値は説明のための例です
+i: 300 2300
+e: 480 2000
+a: 750 1300
+o: 500 900
+ɯ: 330 1400
+arrow: i - e - a - o - ɯ`,
+    },
+  ];
+
+  const TABLEAU_EXAMPLES = [
+    {
+      title: '基本のタブロー',
+      src: `# 致命的な違反の ! と網かけ、☞ は自動で付きます
+input: /pat/
+constraints: *Coda >> Max >> Dep
+cand: pat | * | |
+cand: pa | | * |
+cand: pa.tə | | | *`,
+    },
+    {
+      title: '順位づけのない制約',
+      src: `# , でつないだ制約は破線で区切られ、違反を合わせて比べます
+input: /stap/
+constraints: *Complex >> Anchor-IO, Contiguity-IO
+cand: stap | * | |
+cand: sap | | | *
+cand: tap | | * |
+cand: sə.tap | | | **`,
+    },
+    {
+      title: '想定した勝者とずれたとき',
+      src: `# intended に想定する勝者を書くと、実際に勝つ候補に ☹ が付きます
+input: /pat/
+constraints: *Coda >> Max >> Dep
+cand: pat | * | |
+cand: pa | | * |
+cand: pa.tə | | | *
+intended: b`,
+    },
+    {
+      title: '調和文法 Harmonic Grammar',
+      src: `# 重みを付けると、違反の重み付きの和 H で比べます
+type: hg
+input: /pakt/
+constraints: Max, *Coda, *Complex
+weights: 3 2 2
+cand: pakt | | 1 | 1
+cand: pak | 1 | 1 |
+cand: pa | 2 | |`,
+    },
+    {
+      title: '最大エントロピー MaxEnt',
+      src: `# P は exp(−H) を合計で割った値。|| のあとは観察された頻度
+type: maxent
+input: /tab/
+constraints: *VoicedCoda, Ident(voice)
+weights: 2 1.5
+cand: tab | 1 | || 0.4
+cand: tap | | 1 || 0.6`,
+    },
+    {
+      title: '比較タブロー W と L',
+      src: `# 勝者と各敗者を比べ、勝者が有利な制約に W、不利な制約に L を付けます
+type: comparative
+input: /stap/
+constraints: *Complex >> Anchor-IO >> Contiguity-IO
+cand: stap | * | |
+cand: sap | | | *
+cand: tap | | * |
+intended: b`,
+    },
+  ];
+
+  const MODES = {
+    auto: { engine: window.Autoseg, examples: EXAMPLES, empty: '左の欄に層を書くと、ここに図が出ます。' },
+    vowel: { engine: window.Vowel, examples: VOWEL_EXAMPLES, empty: '左の欄に母音を書くと、ここに母音図が出ます。' },
+    tableau: { engine: window.Tableau, examples: TABLEAU_EXAMPLES, empty: '左の欄に制約と候補を書くと、ここにタブローが出ます。' },
+  };
+  let mode = 'auto';
+  const srcs = { auto: EXAMPLES[0].src, vowel: VOWEL_EXAMPLES[0].src, tableau: TABLEAU_EXAMPLES[0].src };
+
   const DEFAULTS = { latin: 'Charis SIL', ja: 'Noto Serif JP', size: 30, tier: 1.7, gap: 0.9, lw: 1.3, ink: '#1b1e23', transparent: false, scale: 4, embed: true };
 
   // ---------------------------------------------------------------- state
@@ -166,11 +286,14 @@ link: T1-@ap T2-@ap`,
 
   for (const f of LATIN) el.latin.add(new Option(f.label || f.name, f.name));
   for (const f of JA) el.ja.add(new Option(f.label, f.name));
-  EXAMPLES.forEach((ex, i) => el.examples.add(new Option(ex.title, String(i))));
+  function fillExamples() {
+    while (el.examples.options.length > 1) el.examples.remove(1);
+    MODES[mode].examples.forEach((ex, i) => el.examples.add(new Option(ex.title, String(i))));
+  }
 
   function familyOf(o) {
     const lat = LATIN.find((f) => f.name === o.latin) || LATIN[0];
-    return `"${lat.name}", "${o.ja}", ${lat.fallback}`;
+    return `"${lat.name}", "${o.ja}", "${SYMBOLS_FONT}", ${lat.fallback}`;
   }
 
   function readOptions() {
@@ -211,12 +334,33 @@ link: T1-@ap T2-@ap`,
       try { state = JSON.parse(localStorage.getItem('phonologist') || 'null'); } catch (e) { state = null; }
     }
     writeOptions({ ...DEFAULTS, ...(state && state.o) });
-    el.src.value = state && typeof state.src === 'string' ? state.src : EXAMPLES[0].src;
+    if (state && state.srcs) Object.assign(srcs, state.srcs);
+    else if (state && typeof state.src === 'string') srcs.auto = state.src; // older saved state and links
+    mode = state && MODES[state.mode] ? state.mode : 'auto';
+    el.src.value = srcs[mode];
   }
 
   function save() {
     const { family, ...o } = readOptions();
-    try { localStorage.setItem('phonologist', JSON.stringify({ src: el.src.value, o })); } catch (e) { /* private mode */ }
+    srcs[mode] = el.src.value;
+    try { localStorage.setItem('phonologist', JSON.stringify({ mode, srcs, o })); } catch (e) { /* private mode */ }
+  }
+
+  function setMode(m, focus) {
+    if (!MODES[m]) return;
+    srcs[mode] = el.src.value;
+    mode = m;
+    el.src.value = srcs[mode];
+    selected = null;
+    document.body.dataset.mode = mode;
+    document.querySelectorAll('.mode-tab').forEach((b) => {
+      const on = b.dataset.mode === mode;
+      b.setAttribute('aria-selected', on ? 'true' : 'false');
+      b.tabIndex = on ? 0 : -1;
+      if (on && focus) b.focus();
+    });
+    fillExamples();
+    render();
   }
 
   // ---------------------------------------------------------------- fonts
@@ -225,7 +369,7 @@ link: T1-@ap T2-@ap`,
   let fontCSSText = null;
 
   async function ensureFonts(o, text) {
-    const names = [o.latin, o.ja].filter((nm) => !(LATIN.find((f) => f.name === nm) || {}).system);
+    const names = [o.latin, o.ja, SYMBOLS_FONT].filter((nm) => !(LATIN.find((f) => f.name === nm) || {}).system);
     const jobs = [];
     for (const nm of names) {
       jobs.push(document.fonts.load(`${o.size}px "${nm}"`, text));
@@ -251,7 +395,7 @@ link: T1-@ap T2-@ap`,
   async function embeddedFontCSS(o, text, usesItalic) {
     if (!fontCSSText) fontCSSText = await fetch(fontCSSURL).then((r) => r.text());
     const cps = new Set([...text].map((c) => c.codePointAt(0)));
-    const want = new Set([o.latin, o.ja]);
+    const want = new Set([o.latin, o.ja, SYMBOLS_FONT]);
     const blocks = fontCSSText.match(/@font-face\s*\{[^}]*\}/g) || [];
     const picked = blocks.filter((b) => {
       const fam = (b.match(/font-family:\s*['"]([^'"]+)['"]/) || [])[1];
@@ -280,21 +424,22 @@ link: T1-@ap T2-@ap`,
   async function render() {
     const seq = ++renderSeq;
     const o = readOptions();
-    const parsed = A.parse(el.src.value);
-    await ensureFonts(o, A.textOf(parsed));
+    const E = MODES[mode].engine;
+    const parsed = E.parse(el.src.value);
+    await ensureFonts(o, E.textOf(parsed));
     if (seq !== renderSeq) return;
-    const lay = A.layout(parsed, o);
-    current = { parsed, lay, o };
+    const lay = E.layout(parsed, o);
+    current = { parsed, lay, o, mode };
 
-    if (selected) {
+    if (selected && mode === 'auto') {
       const f = parsed.frames[selected.f];
       if (!f || !f.tiers[selected.t] || !f.tiers[selected.t].elems[selected.i]) selected = null;
     }
 
     if (lay.empty) {
-      el.preview.innerHTML = '<p class="empty">左の欄に層を書くと、ここに図が出ます。</p>';
+      el.preview.innerHTML = `<p class="empty">${MODES[mode].empty}</p>`;
     } else {
-      el.preview.innerHTML = A.toSVG(lay, o, { hits: true, noBackground: true });
+      el.preview.innerHTML = A.toSVG(lay, o, { hits: mode === 'auto', noBackground: true });
       markSelection();
     }
     el.sheet.classList.toggle('transparent', o.transparent);
@@ -304,7 +449,7 @@ link: T1-@ap T2-@ap`,
 
   function showNotices(parsed) {
     const msgs = parsed.errors.map((m) => ({ kind: 'error', m }));
-    parsed.frames.forEach((f) => {
+    (parsed.frames || []).forEach((f) => {
       for (const [p, q] of A.crossings(f)) {
         const nm = (l) => `${f.tiers[l.ta].name}${l.ia + 1}–${f.tiers[l.tb].name}${l.ib + 1}`;
         msgs.push({ kind: 'note', m: `${nm(p)} と ${nm(q)} の連結線が交差しています。` });
@@ -323,6 +468,7 @@ link: T1-@ap T2-@ap`,
   // click two elements to cycle the link between them
   const CYCLE = [null, '-', '~', 'x'];
   el.preview.addEventListener('click', (ev) => {
+    if (mode !== 'auto') return;
     const r = ev.target.closest('.hit');
     if (!r) { selected = null; markSelection(); return; }
     const hit = { f: +r.dataset.f, t: +r.dataset.t, i: +r.dataset.i };
@@ -381,6 +527,11 @@ link: T1-@ap T2-@ap`,
   }
 
   function baseName() {
+    if (current && current.mode === 'vowel') return 'phonologist-vowels';
+    if (current && current.mode === 'tableau') {
+      const t = (current.parsed.T.input || 'tableau').replace(/[\\/:*?"<>|\s]+/g, '').slice(0, 24);
+      return 'phonologist-tableau-' + (t || 'tableau');
+    }
     const f = current && current.parsed.frames.find((x) => x.tiers.length);
     const t = f && f.tiers[f.tiers.length - 1].elems.map((e) => e.text).join('');
     const clean = (t || 'diagram').replace(/[\\/:*?"<>|\s]+/g, '').slice(0, 24);
@@ -419,7 +570,7 @@ link: T1-@ap T2-@ap`,
       try {
         const usesItalic = lay.items.some((it) => it.runs && it.runs.some((r) => r.italic));
         flash('フォントを埋め込んでいます…');
-        fontCSS = await embeddedFontCSS(o, A.textOf(parsed), usesItalic);
+        fontCSS = await embeddedFontCSS(o, MODES[current.mode].engine.textOf(parsed), usesItalic);
       } catch (e) {
         flash('フォントを埋め込めなかったため、フォント名だけを指定して保存しました。');
       }
@@ -431,7 +582,8 @@ link: T1-@ap T2-@ap`,
 
   $('#copy-link').addEventListener('click', async () => {
     const { family, ...o } = readOptions();
-    const url = location.href.split('#')[0] + '#d=' + b64e(JSON.stringify({ src: el.src.value, o }));
+    srcs[mode] = el.src.value;
+    const url = location.href.split('#')[0] + '#d=' + b64e(JSON.stringify({ mode, srcs: { [mode]: el.src.value }, o }));
     history.replaceState(null, '', url);
     try { await navigator.clipboard.writeText(url); flash('この図を開くリンクをコピーしました。'); }
     catch (e) { flash('リンクをアドレス欄に入れました。そこからコピーしてください。'); }
@@ -445,7 +597,7 @@ link: T1-@ap T2-@ap`,
     el[k].addEventListener('input', () => { showOutputs(); render(); });
   }
   el.examples.addEventListener('change', () => {
-    const ex = EXAMPLES[+el.examples.value];
+    const ex = MODES[mode].examples[+el.examples.value];
     if (ex) { el.src.value = ex.src; selected = null; render(); }
     el.examples.value = '';
   });
@@ -460,8 +612,18 @@ link: T1-@ap T2-@ap`,
     $('#logo').innerHTML = A.toSVG(lay, o, { lineColor: '#2d4a9c', noBackground: true });
   }
 
+  document.querySelectorAll('.mode-tab').forEach((b) => {
+    b.addEventListener('click', () => setMode(b.dataset.mode));
+    b.addEventListener('keydown', (e) => {
+      const order = ['auto', 'vowel', 'tableau'];
+      const k = order.indexOf(mode);
+      if (e.key === 'ArrowRight') { e.preventDefault(); setMode(order[(k + 1) % 3], true); }
+      if (e.key === 'ArrowLeft') { e.preventDefault(); setMode(order[(k + 2) % 3], true); }
+    });
+  });
+
   loadInitial();
-  render();
+  setMode(mode);
   drawLogo();
   document.fonts.ready.then(() => { render(); drawLogo(); });
 })();
