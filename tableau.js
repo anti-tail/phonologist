@@ -293,7 +293,12 @@
     extras.forEach((e, k) => { if (k === 0) { V(extraX[0] - dbl, 0, totalH); V(extraX[0], 0, totalH); } else V(extraX[k], 0, totalH); });
 
     // header
-    const mid = (y0, h, size, t) => { const m = K.measure(o, t || 'x', size, false); return y0 + h / 2 + (m.asc - m.desc) / 2; };
+    // one baseline per row, from a reference string, so descenders do not lift words
+    const refM = {};
+    const mid = (y0, h, size) => {
+      const m = refM[size] || (refM[size] = K.measure(o, 'Hxgp', size, false));
+      return y0 + h / 2 + (m.asc - m.desc) / 2;
+    };
     items.push(K.textItem(padX, mid(0, headH, ts, T.input), ts, comparative && !T.input ? 'W ~ L' : T.input));
     T.cons.forEach((c, j) => {
       const nm = names[j];
