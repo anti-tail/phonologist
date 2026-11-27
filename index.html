@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link id="font-css" rel="stylesheet" href="https://fonts.googleapis.com/css2?family=BIZ+UDGothic&family=BIZ+UDPGothic:wght@400;700&family=BIZ+UDPMincho&family=Charis+SIL:ital@0;1&family=Gentium+Book+Plus:ital@0;1&family=Klee+One&family=Noto+Sans:ital@0;1&family=Noto+Sans+JP:wght@400&family=Noto+Serif:ital@0;1&family=Noto+Serif+JP:wght@400&family=Noto+Sans+Symbols+2&family=Shippori+Mincho&display=swap">
-<link rel="stylesheet" href="style.css?v=20261127b">
+<link rel="stylesheet" href="style.css?v=20261127c">
 </head>
 <body>
 <header class="masthead">
@@ -20,6 +20,8 @@
   <section class="editor" aria-label="入力">
     <div class="mode-tabs" role="tablist" aria-label="図の種類">
       <button type="button" class="mode-tab" role="tab" data-mode="auto" aria-selected="true">連結図</button>
+      <button type="button" class="mode-tab" role="tab" data-mode="grid" aria-selected="false" tabindex="-1">格子</button>
+      <button type="button" class="mode-tab" role="tab" data-mode="tree" aria-selected="false" tabindex="-1">樹形</button>
       <button type="button" class="mode-tab" role="tab" data-mode="vowel" aria-selected="false" tabindex="-1">母音図</button>
       <button type="button" class="mode-tab" role="tab" data-mode="tableau" aria-selected="false" tabindex="-1">タブロー</button>
     </div>
@@ -29,6 +31,7 @@
         <option value="">例を読み込む</option>
       </select>
     </div>
+    <label class="inline small combos for-mode" data-for="auto grid tree"><input id="opt-combos" type="checkbox"> 連結図・格子・樹形を組み合わせた例も出す</label>
     <textarea id="src" spellcheck="false" autocapitalize="off" autocomplete="off"></textarea>
     <div id="notices" class="notices" aria-live="polite"></div>
 
@@ -41,6 +44,10 @@
         <dd><code>vowels: i e a o u</code> と並べると、IPA の母音図での位置に置きます。円唇母音は点の右、非円唇母音は点の左に出ます。</dd>
         <dt>位置を指定する</dt>
         <dd><code>ɯ: 狭 準後舌 非円唇</code> や <code>ɯ: close near-back unrounded</code> のように、記号のあとに高さ、前後、円唇性を書きます。高さは 狭 準狭 半狭 中 半広 準広 広、前後は 前舌 準前舌 中舌 準後舌 後舌 です。<code>ɯ: 0.1 0.8</code> と 0 から 1 の数で高さと前後を指定することもできます。</dd>
+        <dt>補助記号で位置をずらす</dt>
+        <dd><code>e̞</code>（下寄り）<code>e̝</code>（上寄り）<code>ɯ̟</code>（前寄り）<code>i̠</code>（後ろ寄り）<code>ë</code>（中舌寄り）<code>e̽</code>（中央寄り）のように補助記号を付けると、もとの母音の位置からずらして置きます。<code>˔ ˕ ˖ ˗</code> の字も使えます。<code>vowels:</code> の行でも、<code>ɤ̞: 半狭 後舌 非円唇</code> のような行でも効きます。</dd>
+        <dt>細かく調整する</dt>
+        <dd>位置のあとに <code>h+0.05</code>（少し下へ）<code>b-0.1</code>（少し前へ）<code>h=0.42</code>（高さを直接）のように書き足します。h は高さで 0 が狭、1 が広、b は前後で 0 が前舌、1 が後舌です。<code>b=30%</code> のように百分率でも書けます。<code>ɯ: 0.1 0.8</code> と数だけで書いた位置は、補助記号ではずらしません。<code>option: fine</code> で細かい目盛りの補助線が出ます。</dd>
         <dt>フォルマント図</dt>
         <dd><code>chart: formant</code> のとき、<code>i: 300 2300</code> のように F1 と F2 を Hz で書きます。F2 は右へ行くほど低く、F1 は下へ行くほど高くなります。<code>option: bark</code> で Bark 尺度になります。</dd>
         <dt>矢印</dt>
@@ -75,30 +82,46 @@
         <dd>1 層目と 2 層目以外をつなぐときは、層の名前を添えます。<code>link: μ1-S1 μ2-S2</code></dd>
         <dt>要素の印</dt>
         <dd><code>*こ</code> で上にアクセントの印、<code>(H)</code> で丸囲み、<code>_</code> で何も書かない位置。空白を含む要素は <code>"a b"</code> のように引用符で囲みます。</dd>
-        <dt>記号そのものを書く</dt>
-        <dd>前に <code>\</code> を付けると、その記号を特別な意味なしにそのまま書けます。再建形は <code>\*kata</code> のように書きます。語釈の中でも <code>\*kata</code> とすれば斜体になりません。<code>\(</code> <code>\[</code> <code>\_</code> <code>\"</code> <code>\\</code> も同じです。</dd>
+        <dt>括弧つき範疇</dt>
+        <dd>層の中に <code>[_α</code> や <code>]_ι</code> を置くと、下付きの名前が付いた括弧になります。番号には数えません。<code>[_α=ap</code> のように名前を付けると、<code>link: T1-@ap</code> で音調をその括弧につなげます。</dd>
+        <dt>クリックで連結</dt>
+        <dd>右の図で要素を 2 つ順にクリックすると、その間の線が 実線、破線、切断、なし の順に切り替わります。</dd>
+      </dl>
+      <dl class="for-mode" data-for="grid">
         <dt>韻律格子</dt>
-        <dd><code>grid:</code> の行を層のすぐ上に書くと、その層の要素ごとに 1 列の格子になります。上の行から順に書き、<code>.</code> は印のない位置です。<code>grid: 2 1 3 1</code> のように数だけを並べると、列の高さとして読みます。</dd>
+        <dd><code>grid:</code> の行を層のすぐ上に書くと、その層の要素ごとに 1 列の格子になります。上の行から順に書き、<code>.</code> は印のない位置です。</dd>
+        <dt>列の高さで書く</dt>
+        <dd><code>grid: 2 1 3 1</code> のように数だけを並べると、列ごとの印の数として読みます。</dd>
         <dt>括弧つき格子</dt>
         <dd><code>grid line 0: (x x) (x x)</code> のように印に丸括弧や角括弧を付けます。<code>x)_F</code> で括弧に下付きの名前が付きます。<code>grid</code> のあとの文字は行の名前として出ます。</dd>
-        <dt>樹形</dt>
-        <dd><code>tree: [ [.s s w ] [.w s w ] ]</code> を層のすぐ上に書くと、葉がその層の要素に対応する樹形になります。<code>[.名前</code> が節点の名前、<code>.</code> は名前のない葉です。層の下に根を置くときは、層のあとに <code>tree-below:</code> と書きます。</dd>
-        <dt>括弧つき範疇</dt>
-        <dd>層の中に <code>[_α</code> や <code>]_ι</code> を置くと、下付きの名前が付いた括弧になります。番号には数えません。</dd>
-        <dt>節点や括弧への連結</dt>
-        <dd>節点や括弧に <code>=名前</code> を付け、<code>link: T1-@名前</code> でその層の要素とつなぎます。<code>[.AP=ap</code> や <code>[_α=ap</code> のように書きます。</dd>
         <dt>設定</dt>
-        <dd><code>option: gridlines</code> で格子の列を縦線で結び、<code>labels-right</code> で格子の行の名前を右に置きます。</dd>
+        <dd><code>option: gridlines</code> で格子の列を縦線で結び、<code>labels-right</code> で行の名前を右に置きます。</dd>
+        <dt>層</dt>
+        <dd>格子の下には <code>S: pa ta ka</code> のような層が要ります。印の列の数と層の要素の数をそろえます。</dd>
+      </dl>
+      <dl class="for-mode" data-for="tree">
+        <dt>樹形</dt>
+        <dd><code>tree: [.ω [.F ア メ ] [.F リ カ ] ]</code> のように、<code>[.名前</code> で節点を開き <code>]</code> で閉じます。葉にことばを直接書くと、それが樹形の下に並びます。</dd>
+        <dt>層の上に立てる</dt>
+        <dd><code>tree: [ [.s s w ] [.w s w ] ]</code> の次の行に <code>S: ta ka sa ki</code> のような層を書くと、葉が層の要素に 1 つずつ対応します。葉の <code>s</code> や <code>w</code> は層のすぐ上に出ます。<code>.</code> は名前のない葉です。</dd>
+        <dt>根を下に置く</dt>
+        <dd>層のあとに <code>tree-below:</code> と書くと、層の下に根を置きます。</dd>
+        <dt>節点への連結</dt>
+        <dd><code>[.AP=ap</code> のように節点に名前を付けると、<code>link: T1-@ap</code> で音調などの層をその節点につなげます。</dd>
+      </dl>
+      <dl class="for-mode" data-for="auto grid tree">
+        <dt>組み合わせる</dt>
+        <dd>層、格子、樹形はどのタブでも同じ欄の中で組み合わせられます。上の「組み合わせた例も出す」に印を付けると、例の欄に組み合わせた例が加わります。</dd>
         <dt>図と図の関係</dt>
         <dd>記号だけの行で次の図に移り、その記号で前の図とつなぎます。<code>-&gt;</code> <code>=&gt;</code> <code>&lt;-</code> <code>&lt;-&gt;</code> は矢印に、<code>&gt;</code> <code>&lt;</code> <code>&gt;&gt;</code> <code>=</code> <code>≠</code> <code>≡</code> <code>≈</code> <code>~</code> は記号のまま出ます。<code>&gt; 語頭単調化</code> のように書くと、記号の上に変化や規則の名前を添えます。</dd>
         <dt>段を分ける</dt>
-        <dd><code>---</code> だけの行で次の段に移ります。並行する変化を上下に並べるときに使います。段の最初に記号の行を置くと、その記号から始まります。</dd>
+        <dd><code>---</code> だけの行で次の段に移ります。段の最初に記号の行を置くと、その記号から始まります。</dd>
         <dt>語形だけを書く</dt>
-        <dd><code>form: *HL.M</code> と書くと、その行の文字がそのまま出ます。アステリスクも印や斜体になりません。</dd>
+        <dd><code>form: *HL.M</code> と書くと、その行の文字がそのまま出ます。</dd>
         <dt>番号と語釈</dt>
         <dd><code>label: (5a)</code> で左に番号、<code>gloss: 命 *life*</code> で図の下に語釈を添えます。<code>*…*</code> の部分は斜体になります。</dd>
-        <dt>クリックで連結</dt>
-        <dd>右の図で要素を 2 つ順にクリックすると、その間の線が 実線、破線、切断、なし の順に切り替わります。</dd>
+        <dt>記号そのものを書く</dt>
+        <dd>前に <code>\</code> を付けると、その記号を特別な意味なしにそのまま書けます。再建形は <code>\*kata</code> のように書きます。<code>\(</code> <code>\[</code> <code>\_</code> <code>\"</code> <code>\\</code> も同じです。</dd>
       </dl>
     </details>
 
@@ -113,10 +136,10 @@
       <label>文字の大きさ <output id="out-size"></output>
         <input id="opt-size" type="range" min="14" max="72" step="1">
       </label>
-      <label class="for-mode" data-for="auto">層の間隔 <output id="out-tier"></output>
+      <label class="for-mode" data-for="auto grid tree">層の間隔 <output id="out-tier"></output>
         <input id="opt-tier" type="range" min="0.6" max="4" step="0.1">
       </label>
-      <label class="for-mode" data-for="auto">要素の間隔 <output id="out-gap"></output>
+      <label class="for-mode" data-for="auto grid tree">要素の間隔 <output id="out-gap"></output>
         <input id="opt-gap" type="range" min="0.1" max="2.5" step="0.05">
       </label>
       <label>線の太さ <output id="out-lw"></output>
@@ -156,9 +179,9 @@
   <p>入力した内容はこの端末の中だけで処理され、どこにも送られません。フォントは Google Fonts から読み込みます。<a href="https://github.com/anti-tail/phonologist">ソースコード</a></p>
 </footer>
 
-<script src="engine.js?v=20261127b"></script>
-<script src="vowel.js?v=20261127b"></script>
-<script src="tableau.js?v=20261127b"></script>
-<script src="app.js?v=20261127b"></script>
+<script src="engine.js?v=20261127c"></script>
+<script src="vowel.js?v=20261127c"></script>
+<script src="tableau.js?v=20261127c"></script>
+<script src="app.js?v=20261127c"></script>
 </body>
 </html>

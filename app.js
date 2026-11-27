@@ -155,6 +155,60 @@ link: T1-@ap T2-@ap`,
     },
   ];
 
+  // the association, grid and tree tabs share one engine; each has its own examples
+  const byTitle = (t) => EXAMPLES.find((e) => e.title === t);
+  const AUTO_EXAMPLES = ['東京方言の頭高型', '語頭の低下と平板型', '中高型 こころ', '音調の広がり', '切断と浮遊音調', '再建形', '変化の過程', '3 層の表示'].map(byTitle);
+  const GRID_EXAMPLES = [
+    byTitle('括弧つき格子 Halle & Idsardi 式'),
+    byTitle('格子を列の高さで書く'),
+    {
+      title: '格子の印を行ごとに書く',
+      src: `# 上の行から順に。. は印のない位置
+grid: . . x .
+grid: x . x .
+grid: x x x x
+S: A la ba ma`,
+    },
+    {
+      title: '括弧に下付きの名前を付ける',
+      src: `option: labels-right
+grid line 1: x . x .
+grid line 0: (x x)_F (x x)_F
+S: ta ka sa ki`,
+    },
+    {
+      title: '日本語の拍の上の格子',
+      src: `grid 2: x . . .
+grid 1: x . x .
+grid 0: x x x x
+S: あ め り か`,
+    },
+  ];
+  const TREE_EXAMPLES = [
+    {
+      title: 'フットと語の樹形',
+      src: `# 葉に直接ことばを書けます
+tree: [.ω [.F ア メ ] [.F リ カ ] ]`,
+    },
+    {
+      title: '韻律階層 σ・F・ω',
+      src: `tree: [.ω [.F [.σ ta ] [.σ ka ] ] [.F [.σ sa ] [.σ ki ] ] ]`,
+    },
+    {
+      title: 's/w の樹形',
+      src: `# 葉の s と w は、下の層の要素に 1 つずつ対応します
+tree: [ [.s s w ] [.w s w ] ]
+S: ta ka sa ki`,
+    },
+    {
+      title: '根を下に置く樹形',
+      src: `S: Mis si ssip pi
+tree-below: [ [.w s w ] [.s s w ] ]`,
+    },
+    byTitle('韻律範疇の樹形'),
+  ];
+  const COMBO_EXAMPLES = ['格子と s/w の樹形 Liberman & Prince 式', '格子と声調層', '括弧つき範疇と声調の多重連結', '樹形の節点に音調をつなぐ'].map(byTitle);
+
   const VOWEL_EXAMPLES = [
     {
       title: 'IPA の母音図',
@@ -168,6 +222,14 @@ e: 中 前舌 非円唇
 a: 広 中舌 非円唇
 o: 中 後舌 円唇
 ɯ: 狭 準後舌 非円唇`,
+    },
+    {
+      title: '補助記号と細かい調整',
+      src: `# e̞ は下寄り、ɯ̟ は前寄り、ä は中舌寄り。h や b で少しずつ動かせます
+option: fine ja
+vowels: i e̞ ä o̞ ɯ̟
+ɨ: 狭 中舌 非円唇 h+0.05 b-0.05
+ʉ̞: 狭 中舌 円唇`,
     },
     {
       title: '連鎖推移の矢印',
@@ -267,12 +329,16 @@ intended: b`,
   ];
 
   const MODES = {
-    auto: { engine: window.Autoseg, examples: EXAMPLES, empty: '左の欄に層を書くと、ここに図が出ます。' },
+    auto: { engine: window.Autoseg, examples: AUTO_EXAMPLES, combos: true, empty: '左の欄に層を書くと、ここに図が出ます。' },
+    grid: { engine: window.Autoseg, examples: GRID_EXAMPLES, combos: true, empty: '左の欄に grid: の行と層を書くと、ここに格子が出ます。' },
+    tree: { engine: window.Autoseg, examples: TREE_EXAMPLES, combos: true, empty: '左の欄に tree: の行を書くと、ここに樹形が出ます。' },
     vowel: { engine: window.Vowel, examples: VOWEL_EXAMPLES, empty: '左の欄に母音を書くと、ここに母音図が出ます。' },
     tableau: { engine: window.Tableau, examples: TABLEAU_EXAMPLES, empty: '左の欄に制約と候補を書くと、ここにタブローが出ます。' },
   };
   let mode = 'auto';
-  const srcs = { auto: EXAMPLES[0].src, vowel: VOWEL_EXAMPLES[0].src, tableau: TABLEAU_EXAMPLES[0].src };
+  const ORDER = ['auto', 'grid', 'tree', 'vowel', 'tableau'];
+  const srcs = { auto: AUTO_EXAMPLES[0].src, grid: GRID_EXAMPLES[0].src, tree: TREE_EXAMPLES[0].src, vowel: VOWEL_EXAMPLES[0].src, tableau: TABLEAU_EXAMPLES[0].src };
+  const isAuto = (m) => MODES[m].engine === window.Autoseg;
 
   const DEFAULTS = { latin: 'Charis SIL', ja: 'Noto Serif JP', size: 30, tier: 1.7, gap: 0.9, lw: 1.3, ink: '#1b1e23', transparent: false, scale: 4, embed: true };
 
@@ -282,13 +348,24 @@ intended: b`,
     src: $('#src'), preview: $('#preview'), notices: $('#notices'), status: $('#status'), sheet: $('#sheet'),
     latin: $('#opt-latin'), ja: $('#opt-ja'), size: $('#opt-size'), tier: $('#opt-tier'), gap: $('#opt-gap'), lw: $('#opt-lw'),
     ink: $('#opt-ink'), transparent: $('#opt-transparent'), scale: $('#opt-scale'), embed: $('#opt-embed'), examples: $('#examples'),
+    combos: $('#opt-combos'),
   };
 
   for (const f of LATIN) el.latin.add(new Option(f.label || f.name, f.name));
   for (const f of JA) el.ja.add(new Option(f.label, f.name));
   function fillExamples() {
-    while (el.examples.options.length > 1) el.examples.remove(1);
-    MODES[mode].examples.forEach((ex, i) => el.examples.add(new Option(ex.title, String(i))));
+    while (el.examples.children.length > 1) el.examples.removeChild(el.examples.lastChild);
+    const own = MODES[mode].examples;
+    const withCombos = MODES[mode].combos && el.combos.checked;
+    const target = withCombos ? document.createElement('optgroup') : el.examples;
+    if (withCombos) { target.label = 'この種類の例'; el.examples.appendChild(target); }
+    own.forEach((ex, i) => target.appendChild(new Option(ex.title, 'own:' + i)));
+    if (withCombos) {
+      const g = document.createElement('optgroup');
+      g.label = '組み合わせた例';
+      COMBO_EXAMPLES.forEach((ex, i) => g.appendChild(new Option(ex.title, 'combo:' + i)));
+      el.examples.appendChild(g);
+    }
   }
 
   function familyOf(o) {
@@ -301,6 +378,7 @@ intended: b`,
       latin: el.latin.value, ja: el.ja.value,
       size: +el.size.value, tier: +el.tier.value, gap: +el.gap.value, lw: +el.lw.value,
       ink: el.ink.value, transparent: el.transparent.checked, scale: +el.scale.value, embed: el.embed.checked,
+      combos: el.combos.checked,
     };
     o.family = familyOf(o);
     return o;
@@ -310,6 +388,7 @@ intended: b`,
     el.latin.value = o.latin; el.ja.value = o.ja;
     el.size.value = o.size; el.tier.value = o.tier; el.gap.value = o.gap; el.lw.value = o.lw;
     el.ink.value = o.ink; el.transparent.checked = !!o.transparent; el.scale.value = String(o.scale); el.embed.checked = o.embed !== false;
+    el.combos.checked = !!o.combos;
     showOutputs();
   }
 
@@ -431,7 +510,7 @@ intended: b`,
     const lay = E.layout(parsed, o);
     current = { parsed, lay, o, mode };
 
-    if (selected && mode === 'auto') {
+    if (selected && isAuto(mode)) {
       const f = parsed.frames[selected.f];
       if (!f || !f.tiers[selected.t] || !f.tiers[selected.t].elems[selected.i]) selected = null;
     }
@@ -439,7 +518,7 @@ intended: b`,
     if (lay.empty) {
       el.preview.innerHTML = `<p class="empty">${MODES[mode].empty}</p>`;
     } else {
-      el.preview.innerHTML = A.toSVG(lay, o, { hits: mode === 'auto', noBackground: true });
+      el.preview.innerHTML = A.toSVG(lay, o, { hits: isAuto(mode), noBackground: true });
       markSelection();
     }
     el.sheet.classList.toggle('transparent', o.transparent);
@@ -468,7 +547,7 @@ intended: b`,
   // click two elements to cycle the link between them
   const CYCLE = [null, '-', '~', 'x'];
   el.preview.addEventListener('click', (ev) => {
-    if (mode !== 'auto') return;
+    if (!isAuto(mode)) return;
     const r = ev.target.closest('.hit');
     if (!r) { selected = null; markSelection(); return; }
     const hit = { f: +r.dataset.f, t: +r.dataset.t, i: +r.dataset.i };
@@ -593,11 +672,13 @@ intended: b`,
 
   let timer;
   el.src.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(render, 120); });
+  el.combos.addEventListener('change', () => { fillExamples(); save(); });
   for (const k of ['latin', 'ja', 'size', 'tier', 'gap', 'lw', 'ink', 'transparent', 'scale', 'embed']) {
     el[k].addEventListener('input', () => { showOutputs(); render(); });
   }
   el.examples.addEventListener('change', () => {
-    const ex = MODES[mode].examples[+el.examples.value];
+    const [kind, k] = el.examples.value.split(':');
+    const ex = (kind === 'combo' ? COMBO_EXAMPLES : MODES[mode].examples)[+k];
     if (ex) { el.src.value = ex.src; selected = null; render(); }
     el.examples.value = '';
   });
@@ -615,10 +696,9 @@ intended: b`,
   document.querySelectorAll('.mode-tab').forEach((b) => {
     b.addEventListener('click', () => setMode(b.dataset.mode));
     b.addEventListener('keydown', (e) => {
-      const order = ['auto', 'vowel', 'tableau'];
-      const k = order.indexOf(mode);
-      if (e.key === 'ArrowRight') { e.preventDefault(); setMode(order[(k + 1) % 3], true); }
-      if (e.key === 'ArrowLeft') { e.preventDefault(); setMode(order[(k + 2) % 3], true); }
+      const k = ORDER.indexOf(mode), n = ORDER.length;
+      if (e.key === 'ArrowRight') { e.preventDefault(); setMode(ORDER[(k + 1) % n], true); }
+      if (e.key === 'ArrowLeft') { e.preventDefault(); setMode(ORDER[(k + n - 1) % n], true); }
     });
   });
 

@@ -74,11 +74,18 @@ a { color: var(--pen); }
 .mode-tab[aria-selected="true"] { color: var(--pen); border-bottom-color: var(--pen); }
 
 .for-mode { display: none; }
-body[data-mode="auto"] .for-mode[data-for="auto"],
-body[data-mode="vowel"] .for-mode[data-for="vowel"],
-body[data-mode="tableau"] .for-mode[data-for="tableau"] { display: revert; }
-.options label.for-mode { display: none; }
-body[data-mode="auto"] .options label.for-mode[data-for="auto"] { display: flex; }
+body[data-mode="auto"] .for-mode[data-for~="auto"],
+body[data-mode="grid"] .for-mode[data-for~="grid"],
+body[data-mode="tree"] .for-mode[data-for~="tree"],
+body[data-mode="vowel"] .for-mode[data-for~="vowel"],
+body[data-mode="tableau"] .for-mode[data-for~="tableau"] { display: revert; }
+body[data-mode="auto"] .options label.for-mode[data-for~="auto"],
+body[data-mode="grid"] .options label.for-mode[data-for~="grid"],
+body[data-mode="tree"] .options label.for-mode[data-for~="tree"] { display: flex; }
+body[data-mode="auto"] label.combos,
+body[data-mode="grid"] label.combos,
+body[data-mode="tree"] label.combos { display: inline-flex; }
+.mode-tabs { flex-wrap: wrap; }
 
 .field-head {
   display: flex;

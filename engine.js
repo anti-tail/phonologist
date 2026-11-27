@@ -217,9 +217,20 @@
       let c;
       if (r.kind === 'tree' && r.below) { c = tierIdx(j - 1, -1); if (c < 0) c = tierIdx(j + 1, 1); }
       else { c = tierIdx(j + 1, 1); if (c < 0) { c = tierIdx(j - 1, -1); if (r.kind === 'tree') r.below = true; } }
+      // a tree on its own: its leaves become the words of a tier under it
+      if (c < 0 && r.kind === 'tree') {
+        const leaves = leavesOf(r.root);
+        const all = leaves.map((l) => parseElem({ text: l.label || '_' }));
+        leaves.forEach((l) => { l.label = ''; });
+        const t = { name: '葉', line: r.line, all, elems: all.filter((e) => !e.isBracket), fromLeaves: true };
+        f.tiers.push(t);
+        R.splice(j + 1, 0, { kind: 'tier', tier: t, ti: f.tiers.length - 1 });
+        c = f.tiers.length - 1;
+        r.below = false;
+      }
       r.carrier = c;
       const where = `${r.line + 1} 行目`;
-      if (c < 0) { errors.push(`${where}: 格子や樹形の下に置く層がありません。`); r.bad = true; return; }
+      if (c < 0) { errors.push(`${where}: 格子の下に置く層がありません。格子の次の行に S: pa ta ka のような層を書いてください。`); r.bad = true; return; }
       const n = f.tiers[c].elems.length;
       if (r.kind === 'grid') {
         for (const row of r.rows) {
@@ -893,7 +904,7 @@
 
   function layout(parsed, o) {
     const S = o.size;
-    const frames = parsed.frames.map((f, fi) => ({ f, fi })).filter(({ f }) => f.rows.length);
+    const frames = parsed.frames.map((f, fi) => ({ f, fi })).filter(({ f }) => f.rows.some((r) => r.kind === 'tier' || r.kind === 'text'));
     const items = [];
     const hits = [];
     if (!frames.length) return { items, hits, width: 0, height: 0, empty: true };

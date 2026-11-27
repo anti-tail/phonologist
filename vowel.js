@@ -28,6 +28,30 @@
 
   const SHAPES = ['ipa', 'plain', 'simple', 'rectangle', 'triangle', 'formant'];
 
+  // IPA diacritics that move a vowel on the chart (combining and spacing forms)
+  const STEP_H = 0.1, STEP_B = 0.12;
+  const DIACRITICS = {
+    '\u031D': (p) => { p.h -= STEP_H; }, '\u02D4': (p) => { p.h -= STEP_H; },   // raised  e̝ e˔
+    '\u031E': (p) => { p.h += STEP_H; }, '\u02D5': (p) => { p.h += STEP_H; },   // lowered e̞ e˕
+    '\u031F': (p) => { p.b -= STEP_B; }, '\u02D6': (p) => { p.b -= STEP_B; },   // advanced ɯ̟ ɯ˖
+    '\u0320': (p) => { p.b += STEP_B; }, '\u02D7': (p) => { p.b += STEP_B; },   // retracted i̠ i˗
+    '\u0308': (p) => { p.b += (0.5 - p.b) * 0.5; },                              // centralized ë
+    '\u033D': (p) => { p.b += (0.5 - p.b) * 0.5; p.h += (0.5 - p.h) * 0.5; },    // mid-centralized e̽
+  };
+  const clamp = (x) => Math.max(0, Math.min(1, x));
+
+  // split a symbol into its base letter and the diacritics that move it
+  function analyse(sym) {
+    const d = sym.normalize('NFD');
+    const base = IPA[sym] ? sym : d[0];
+    const marks = [...(IPA[sym] ? '' : d.slice(1))].filter((c) => DIACRITICS[c]);
+    return { base, marks };
+  }
+  function applyMarks(p, marks) {
+    for (const m of marks) DIACRITICS[m](p);
+    p.h = clamp(p.h); p.b = clamp(p.b);
+  }
+
   function parse(src) {
     const errors = [];
     const P = { shape: 'ipa', vowels: [], arrows: [], opts: new Set(), title: '', caption: '' };
@@ -49,10 +73,12 @@
       else if (k === 'caption' || k === 'gloss' || key === '注') P.caption = body;
       else if (k === 'vowels' || key === '母音') {
         for (const sym of body.split(/\s+/).filter(Boolean).map(K.unesc)) {
-          const base = sym.normalize('NFD')[0];
-          const pos = IPA[sym] || IPA[base];
+          const { base, marks } = analyse(sym);
+          const pos = IPA[base];
           if (!pos) { errors.push(`${where}: 「${sym}」の位置が分かりません。「${sym}: close-mid central」のように書いてください。`); continue; }
-          add({ sym, h: pos[0], b: pos[1], r: pos[2], nodot: !!pos[3], fromIPA: true });
+          const v = { sym, h: pos[0], b: pos[1], r: pos[2], nodot: !!pos[3], fromIPA: true };
+          applyMarks(v, marks);
+          add(v);
         }
       } else if (k === 'arrow' || k === 'arrows' || k === 'path' || k === 'shift' || key === '矢印') {
         const toks = body.split(/\s+/).filter(Boolean);
@@ -64,26 +90,46 @@
       } else {
         // a vowel with its own position: words, "h b" in 0–1, or "F1 F2" in Hz
         const words = body.split(/[\s,]+/).filter(Boolean);
-        const nums = words.filter((w) => /^-?\d+(\.\d+)?$/.test(w)).map(Number);
+        const tweaks = [];
+        const isNum = (w) => /^-?\d+(\.\d+)?%?$/.test(w);
+        const num = (w) => (w.endsWith('%') ? parseFloat(w) / 100 : parseFloat(w));
+        const nums = words.filter(isNum).map(num);
         const v = { sym: key };
+        let exact = false;
         if (nums.length >= 2) {
           if (nums[0] > 2 || nums[1] > 2) { v.f1 = nums[0]; v.f2 = nums[1]; }
-          else { v.h = nums[0]; v.b = nums[1]; }
+          else { v.h = nums[0]; v.b = nums[1]; exact = true; }
         }
         for (const w of words) {
           const lw = w.toLowerCase();
+          const tw = lw.match(/^([hb]|高さ|前後)([=+-])(\d*\.?\d+)(%?)$/);
+          if (tw) {
+            const axis = tw[1] === 'h' || tw[1] === '高さ' ? 'h' : 'b';
+            const val = parseFloat(tw[3]) / (tw[4] ? 100 : 1);
+            tweaks.push([axis, tw[2], val]);
+            continue;
+          }
+          if (isNum(w)) continue;
           if (lw in HEIGHT || w in HEIGHT) v.h = HEIGHT[lw] ?? HEIGHT[w];
           else if (lw in BACK || w in BACK) v.b = BACK[lw] ?? BACK[w];
           else if (lw in ROUND || w in ROUND) v.r = ROUND[lw] ?? ROUND[w];
           else if (lw === 'dot') v.dot = true;
           else if (lw === 'nodot') v.nodot = true;
-          else if (!/^-?\d+(\.\d+)?$/.test(w)) errors.push(`${where}: 「${w}」が分かりません。close / close-mid / front / back / rounded などで書いてください。`);
+          else errors.push(`${where}: 「${w}」が分かりません。close / close-mid / front / back / rounded や h+0.05 などで書いてください。`);
         }
-        const ipa = IPA[key] || IPA[key.normalize('NFD')[0]];
+        const { base, marks } = analyse(key);
+        const ipa = IPA[base];
         if (v.h === undefined && ipa) v.h = ipa[0];
         if (v.b === undefined && ipa) v.b = ipa[1];
         if (v.r === undefined && ipa && v.f1 === undefined) v.r = ipa[2];
         if (v.f1 === undefined && (v.h === undefined || v.b === undefined)) { errors.push(`${where}: 「${key}」の高さと前後の位置が足りません。`); return; }
+        // diacritics move a vowel from its named cell, but not from a position given in numbers
+        if (v.f1 === undefined && !exact) applyMarks(v, marks);
+        for (const [axis, op, val] of tweaks) {
+          if (v.f1 !== undefined) { errors.push(`${where}: フォルマント図では h や b での調整は使えません。`); break; }
+          if (op === '=') v[axis] = val; else if (op === '+') v[axis] += val; else v[axis] -= val;
+          v[axis] = clamp(v[axis]);
+        }
         add(v);
       }
     });
@@ -125,6 +171,13 @@
     else pt = (h, b) => { const xl = h * W / 2; return [xl + b * (W - xl), h * H]; };
 
     const L = (a, b, dash) => items.push({ type: 'line', x1: a[0], y1: a[1], x2: b[0], y2: b[1], w: lw, dash: dash || null });
+    // a faint guide grid for reading fine positions: every 1/12 of the height, every 1/8 of the depth
+    if (P.opts.has('fine')) {
+      const faint = '#d3d7de';
+      const G = (a, b2, strong) => items.push({ type: 'line', x1: a[0], y1: a[1], x2: b2[0], y2: b2[1], w: lw * (strong ? 0.55 : 0.35), color: faint });
+      for (let k = 1; k < 12; k++) G(pt(k / 12, 0), pt(k / 12, 1), k % 2 === 0);
+      for (let k = 1; k < 8; k++) G(pt(0, k / 8), pt(1, k / 8), k % 2 === 0);
+    }
     const levels = three ? [0.5] : [1 / 3, 2 / 3];
     // outline
     if (P.shape === 'triangle') { L(pt(0, 0), pt(0, 1)); L(pt(0, 0), pt(1, 0.5)); L(pt(0, 1), pt(1, 0.5)); }
